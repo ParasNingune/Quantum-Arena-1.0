@@ -145,13 +145,23 @@ async def analyze_report(
                 detail = raw_error
             raise HTTPException(status_code=status_code, detail=detail)
 
-        if user_email:
-            try:
-                save_report(user_email, result)
-            except Exception as db_err:
-                logger.error(f"Failed to save report to DB: {db_err}")
+        storage_user = (user_email or "anonymous@local").strip().lower()
+        result_to_save = {
+            **result,
+            "patient_age": age,
+            "patient_gender": gender_code,
+            "report_language": language,
+            "source_filename": file.filename or "uploaded_file",
+        }
 
-        return result
+        saved_report = None
+        try:
+            report_id = save_report(storage_user, result_to_save)
+            saved_report = get_report_by_id(report_id)
+        except Exception as db_err:
+            logger.error(f"Failed to save report to DB: {db_err}")
+
+        return saved_report or result_to_save
 
     except HTTPException as e:
         raise e
@@ -215,7 +225,7 @@ async def export_pdf(req: ExportPDFRequest):
         return Response(
             content=pdf_bytes,
             media_type="application/pdf",
-            headers={"Content-Disposition": 'attachment; filename="MediSense_Report.pdf"'},
+            headers={"Content-Disposition": 'attachment; filename="ClariMed_Report.pdf"'},
         )
     except HTTPException as e:
         raise e
@@ -232,6 +242,7 @@ async def analyze_and_download_pdf(
     patient_name: str = Form("Patient"),
     language: str = Form("en"),
     medications: Optional[str] = Form(None),
+    user_email: Optional[str] = Form(None),
 ):
     if not file.filename.endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are supported.")
@@ -250,6 +261,19 @@ async def analyze_and_download_pdf(
 
         if "error" in analysis:
             raise HTTPException(status_code=500, detail=analysis["error"])
+
+        storage_user = (user_email or "anonymous@local").strip().lower()
+        analysis_to_save = {
+            **analysis,
+            "patient_age": age,
+            "patient_gender": gender_code,
+            "report_language": language,
+            "source_filename": file.filename or "uploaded_file",
+        }
+        try:
+            save_report(storage_user, analysis_to_save)
+        except Exception as db_err:
+            logger.error(f"Failed to save report from /analyze/pdf to DB: {db_err}")
 
         pdf_bytes = generate_pdf(
             analysis,

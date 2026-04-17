@@ -7,3 +7,5 @@ pydantic
 loguru
 pypdf
 reportlab
+pymongo
+dnspython

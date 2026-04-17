@@ -98,7 +98,8 @@ body {
 
 .zen-results {
   --zen-nav-bg: rgba(248, 249, 250, 0.88);
-  background: var(--zen-bg, #F8F9FA);
+  background-color: #F8F9FA !important;
+  background-image: none !important;
   color: var(--zen-text);
   min-height: 100vh;
 }

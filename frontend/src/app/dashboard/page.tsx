@@ -87,6 +87,25 @@ function ResultsView({ results, onReset, user, onLogout, onViewReport }: { resul
   const [activeTab, setActiveTab] = useState('overview');
   const displayedQuestions = showAllQuestions ? doctorQuestions : doctorQuestions.slice(0, 3);
 
+  const handleViewPastReport = (report: any) => {
+    const normalized = { ...report };
+    normalized.all_tests = normalized.all_tests || normalized.tests || [];
+    normalized.doctor_questions = normalized.doctor_questions || [];
+
+    if (normalized.doctor_questions.length === 0) {
+      (normalized.patterns || []).forEach((pattern: any) => {
+        if (pattern?.doctor_questions) {
+          normalized.doctor_questions.push(...pattern.doctor_questions);
+        }
+      });
+      normalized.doctor_questions = Array.from(new Set(normalized.doctor_questions));
+    }
+
+    setShowAllQuestions(false);
+    setActiveTab('overview');
+    if (onViewReport) onViewReport(normalized);
+  };
+
   return (
     <div className="zen-results relative">
       <ChatWidget analysisData={results} />
@@ -94,7 +113,7 @@ function ResultsView({ results, onReset, user, onLogout, onViewReport }: { resul
       <nav
         className="w-full px-6 py-4 flex justify-between items-center sticky top-0 z-50"
         style={{
-          background: 'var(--zen-nav-bg, rgba(248, 249, 250, 0.88))',
+          background: 'rgba(248, 249, 250, 0.88)',
           backdropFilter: 'blur(12px)',
           WebkitBackdropFilter: 'blur(12px)',
           borderBottom: '1px solid var(--zen-border)',
@@ -274,9 +293,7 @@ function ResultsView({ results, onReset, user, onLogout, onViewReport }: { resul
             >
               <PastReportsTab
                 userEmail={user.email}
-                onViewReport={(report) => {
-                  if (onViewReport) onViewReport(report);
-                }}
+                onViewReport={handleViewPastReport}
               />
             </motion.div>
           )}

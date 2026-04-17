@@ -101,6 +101,9 @@ export default function HealthScoreGauge({ data }: { data: any }) {
       </svg>
 
       {/* Arc Gauge */}
+      <p className="text-sm font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--zen-text-muted)' }}>
+        Health Score
+      </p>
       <div className="relative w-52 h-28 mx-auto mb-6">
         <svg viewBox="0 0 200 110" className="w-full h-full">
           {/* Track */}
@@ -126,9 +129,6 @@ export default function HealthScoreGauge({ data }: { data: any }) {
         </svg>
         {/* Score in center */}
         <div className="absolute inset-0 flex flex-col justify-end items-center pb-1">
-          <span className="text-xs font-bold uppercase tracking-wider mb-0.5" style={{ color: 'var(--zen-text-muted)' }}>
-            Health Score
-          </span>
           <span className="text-5xl font-bold" style={{ color: 'var(--zen-text)' }}>{animScore}</span>
           <span className="text-sm font-semibold mt-0.5" style={{ color }}>{gradeEmoji(score)} {gradeLabel(score)}</span>
         </div>
