@@ -18,6 +18,9 @@ export default function CanvasSequence({
   const { scrollYProgress } = useScroll();
   const [images, setImages] = useState<HTMLImageElement[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
+  const rafIdRef = useRef<number | null>(null);
+  const pendingFrameRef = useRef<number>(0);
+  const lastDrawnFrameRef = useRef<number>(-1);
 
   // Preload images
   useEffect(() => {
@@ -26,6 +29,7 @@ export default function CanvasSequence({
 
     for (let i = 1; i <= frameCount; i++) {
       const img = new Image();
+      img.decoding = "async";
       // zeropad to 3 digits
       const paddedIndex = i.toString().padStart(3, "0");
       img.src = `${framePath}${paddedIndex}.jpg`;
@@ -42,6 +46,7 @@ export default function CanvasSequence({
 
   const drawImage = (index: number) => {
     if (!canvasRef.current || images.length === 0) return;
+    if (index === lastDrawnFrameRef.current) return;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
@@ -53,12 +58,24 @@ export default function CanvasSequence({
     const x = (canvas.width / 2) - (img.width / 2) * scale;
     const y = (canvas.height / 2) - (img.height / 2) * scale;
     ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+    lastDrawnFrameRef.current = index;
+  };
+
+  const scheduleDraw = (index: number) => {
+    pendingFrameRef.current = index;
+
+    if (rafIdRef.current !== null) return;
+
+    rafIdRef.current = requestAnimationFrame(() => {
+      rafIdRef.current = null;
+      drawImage(pendingFrameRef.current);
+    });
   };
 
   // Initial draw once loaded
   useEffect(() => {
     if (isLoaded) {
-      requestAnimationFrame(() => drawImage(0));
+      scheduleDraw(0);
     }
   }, [isLoaded, images]);
 
@@ -66,7 +83,7 @@ export default function CanvasSequence({
   useMotionValueEvent(scrollYProgress, "change", (latest) => {
     if (!isLoaded || images.length === 0) return;
     const frameIndex = Math.min(frameCount - 1, Math.max(0, Math.floor(latest * frameCount)));
-    requestAnimationFrame(() => drawImage(frameIndex));
+    scheduleDraw(frameIndex);
   });
 
   // Handle Resize
@@ -74,7 +91,7 @@ export default function CanvasSequence({
     const handleResize = () => {
       if (canvasRef.current) {
         const canvas = canvasRef.current;
-        const dpr = window.devicePixelRatio || 1;
+        const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
 
         canvas.width = window.innerWidth * dpr;
         canvas.height = window.innerHeight * dpr;
@@ -89,14 +106,19 @@ export default function CanvasSequence({
         if (isLoaded && images.length > 0) {
           const latest = scrollYProgress.get();
           const frameIndex = Math.min(frameCount - 1, Math.max(0, Math.floor(latest * frameCount)));
-          requestAnimationFrame(() => drawImage(frameIndex));
+          scheduleDraw(frameIndex);
         }
       }
     };
 
     handleResize(); // Set initial size
     window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+      }
+    };
   }, [isLoaded, images, scrollYProgress, frameCount]);
 
   return (
