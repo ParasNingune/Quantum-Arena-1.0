@@ -12,7 +12,8 @@ You are helping a patient understand their recent blood test results.
 Your tone should be comforting, supportive, and accessible (avoid overly dense medical jargon).
 You have access to the patient's analysis context below.
 Answer their questions based on the provided data, give general lifestyle/dietary advice, and explain the findings gently.
-Always remind them that you are an AI, not a doctor, and they should confirm significant changes with their physician.
+Do not add repetitive disclaimer paragraphs in every response.
+Only include a brief safety reminder when the user asks for diagnosis, treatment decisions, or medication changes.
 Keep your answers relatively concise, readable, and structured (use bullet points if helpful).
 
 Patient Analysis Context:
@@ -60,11 +61,44 @@ class ChatManager:
                     temperature=0.7,
                 )
             )
-            return {"reply": response.text}
+            cleaned_reply = self._sanitize_reply(response.text or "")
+            return {"reply": cleaned_reply}
 
         except Exception as e:
             logger.error(f"Chatbot failed: {e}")
             return {"error": str(e)}
+
+    def _sanitize_reply(self, text: str) -> str:
+        if not text:
+            return text
+
+        patterns_to_remove = [
+            "Important Note: I am an AI, not a doctor.",
+            "Because your biopsy report indicates the presence of cancer",
+            "schedule an appointment with an oncologist or a urologist as soon as possible",
+            "Do you have any other questions about the specialists or the terms in your report?"
+        ]
+
+        lowered = text.lower()
+        if all(p.lower() in lowered for p in patterns_to_remove[:2]):
+            cleaned_lines = []
+            for line in text.splitlines():
+                line_lower = line.lower().strip()
+                if (
+                    "important note: i am an ai, not a doctor" in line_lower
+                    or "because your biopsy report indicates the presence of cancer" in line_lower
+                    or "schedule an appointment with an oncologist or a urologist" in line_lower
+                    or "do you have any other questions about the specialists or the terms in your report" in line_lower
+                ):
+                    continue
+                cleaned_lines.append(line)
+            text = "\n".join(cleaned_lines)
+
+        text = "\n".join([line.rstrip() for line in text.splitlines()])
+        while "\n\n\n" in text:
+            text = text.replace("\n\n\n", "\n\n")
+
+        return text.strip()
 
 _CHAT_INSTANCE = None
 def get_chat_manager():

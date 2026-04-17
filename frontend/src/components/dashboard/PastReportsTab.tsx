@@ -14,6 +14,20 @@ interface PastReportsTabProps {
   onViewReport: (report: any) => void;
 }
 
+function parseReportDate(timestamp: any): Date {
+  if (timestamp instanceof Date) return timestamp;
+  const raw = String(timestamp || '').trim();
+  if (!raw) return new Date(0);
+
+  const hasTimezone = /([zZ]|[+-]\d{2}:?\d{2})$/.test(raw);
+  const normalized = hasTimezone ? raw : `${raw}Z`;
+  const parsed = new Date(normalized);
+  if (!Number.isNaN(parsed.getTime())) return parsed;
+
+  const fallback = new Date(raw);
+  return Number.isNaN(fallback.getTime()) ? new Date(0) : fallback;
+}
+
 /* ─────────────────────────────────────────── */
 /* PAST REPORTS TAB (full-featured)            */
 /* ─────────────────────────────────────────── */
@@ -100,8 +114,8 @@ export default function PastReportsTab({ userEmail, onViewReport }: PastReportsT
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      const dateStr = new Date(report.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).replace(/[, ]+/g, '_');
-      a.download = `MediSense_Report_${dateStr}.pdf`;
+      const dateStr = parseReportDate(report.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).replace(/[, ]+/g, '_');
+      a.download = `ClariMed_Report_${dateStr}.pdf`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -131,7 +145,7 @@ export default function PastReportsTab({ userEmail, onViewReport }: PastReportsT
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `MediSense_Comparison_Report.pdf`;
+      a.download = `ClariMed_Comparison_Report.pdf`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -145,12 +159,12 @@ export default function PastReportsTab({ userEmail, onViewReport }: PastReportsT
 
   /* ─── COMPARE VIEW ─── */
   if (compareView && compareData) {
-    const r1Date = new Date(compareData[0].created_at).getTime();
-    const r2Date = new Date(compareData[1].created_at).getTime();
+    const r1Date = parseReportDate(compareData[0].created_at).getTime();
+    const r2Date = parseReportDate(compareData[1].created_at).getTime();
     const olderReport = r1Date < r2Date ? compareData[0] : compareData[1];
     const newerReport = r1Date >= r2Date ? compareData[0] : compareData[1];
-    const oldDateStr = new Date(olderReport.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    const newDateStr = new Date(newerReport.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const oldDateStr = parseReportDate(olderReport.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const newDateStr = parseReportDate(newerReport.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
     // Merge tests for chart
     const oldTests = olderReport.tests || [];
@@ -363,8 +377,9 @@ export default function PastReportsTab({ userEmail, onViewReport }: PastReportsT
         {reports.map((report, i) => {
           const isSelected = selectedForCompare.includes(report.id);
           const canSelect = selectedForCompare.length < 2 || isSelected;
-          const dateStr = new Date(report.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-          const timeStr = new Date(report.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+          const reportDate = parseReportDate(report.created_at);
+          const dateStr = reportDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+          const timeStr = reportDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
           return (
             <motion.div

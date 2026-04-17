@@ -12,7 +12,7 @@ from pipeline.comparator import get_comparator
 from pipeline.ocr import get_extractor
 from pipeline.pdf_report import generate_pdf
 from pipeline.comparison_pdf import generate_comparison_pdf
-from database import save_report, get_reports_by_user, get_report_by_id, save_test_reminder
+from database import save_report, get_reports_by_user, get_report_by_id, save_test_reminder, get_test_reminders_by_user, report_belongs_to_user, get_due_reminders_by_user, mark_reminder_as_notified
 from loguru import logger
 from dotenv import load_dotenv
 
@@ -21,7 +21,7 @@ load_dotenv()
 cors_origins_raw = os.getenv("CORS_ORIGINS", "*")
 cors_origins = [origin.strip() for origin in cors_origins_raw.split(",") if origin.strip()]
 
-app = FastAPI(title="MediSense AI API", version="3.0.0")
+app = FastAPI(title="ClariMed API", version="3.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -105,6 +105,10 @@ class ReminderRequest(BaseModel):
     report_id: Optional[str] = None
     health_score: Optional[int] = None
 
+
+class MarkReminderNotifiedRequest(BaseModel):
+    user_email: str
+
 @app.get("/")
 def home():
     return {
@@ -179,7 +183,11 @@ async def analyze_report(
 @app.get("/reports/{user_email}")
 async def get_user_reports(user_email: str):
     try:
-        reports = get_reports_by_user(user_email)
+        normalized_email = (user_email or "").strip().lower()
+        if not normalized_email:
+            raise HTTPException(status_code=400, detail="user_email is required")
+
+        reports = get_reports_by_user(normalized_email)
         return {"reports": reports}
     except HTTPException as e:
         raise e
@@ -223,6 +231,8 @@ async def create_reminder(req: ReminderRequest):
             raise HTTPException(status_code=400, detail="user_email is required")
         if req.remind_in_days <= 0:
             raise HTTPException(status_code=400, detail="remind_in_days must be greater than 0")
+        if req.report_id and not report_belongs_to_user(req.report_id, user_email):
+            raise HTTPException(status_code=400, detail="report_id does not belong to this user")
 
         reminder = save_test_reminder(
             user_email=user_email,
@@ -235,6 +245,54 @@ async def create_reminder(req: ReminderRequest):
         raise e
     except Exception as e:
         logger.error(f"Reminder API Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/reminders/{user_email}")
+async def get_user_reminders(user_email: str):
+    try:
+        normalized_email = (user_email or "").strip().lower()
+        if not normalized_email:
+            raise HTTPException(status_code=400, detail="user_email is required")
+
+        reminders = get_test_reminders_by_user(normalized_email)
+        return {"reminders": reminders}
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        logger.error(f"Reminder Fetch API Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/reminders/due/{user_email}")
+async def get_due_reminders(user_email: str):
+    try:
+        normalized_email = (user_email or "").strip().lower()
+        if not normalized_email:
+            raise HTTPException(status_code=400, detail="user_email is required")
+
+        reminders = get_due_reminders_by_user(normalized_email)
+        return {"reminders": reminders}
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        logger.error(f"Due Reminder Fetch API Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/reminders/{reminder_id}/mark-notified")
+async def mark_notified(reminder_id: str, req: MarkReminderNotifiedRequest):
+    try:
+        user_email = (req.user_email or "").strip().lower()
+        if not user_email:
+            raise HTTPException(status_code=400, detail="user_email is required")
+
+        updated = mark_reminder_as_notified(reminder_id, user_email)
+        return {"updated": updated}
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        logger.error(f"Mark Reminder Notified API Error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 class ExportPDFRequest(BaseModel):
@@ -315,7 +373,7 @@ async def analyze_and_download_pdf(
         return Response(
             content=pdf_bytes,
             media_type="application/pdf",
-            headers={"Content-Disposition": 'attachment; filename="MediSense_Report.pdf"'},
+            headers={"Content-Disposition": 'attachment; filename="ClariMed_Report.pdf"'},
         )
 
     except HTTPException as e:
@@ -362,7 +420,7 @@ async def export_comparison_pdf(req: ComparisonPDFRequest):
         return Response(
             content=pdf_bytes,
             media_type="application/pdf",
-            headers={"Content-Disposition": 'attachment; filename="MediSense_Comparison_Report.pdf"'},
+            headers={"Content-Disposition": 'attachment; filename="ClariMed_Comparison_Report.pdf"'},
         )
     except HTTPException as e:
         raise e

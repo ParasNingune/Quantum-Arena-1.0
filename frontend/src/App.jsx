@@ -227,7 +227,7 @@ function UploadScreen({ onSubmit }) {
           <Activity size={22} color="white" />
         </div>
         <span style={{ fontSize: 22, fontWeight: 700, color: "#0F172A", fontFamily: "inherit" }}>
-          MediSense <span style={{ color: "#0D9488" }}>AI</span>
+          ClariMed
         </span>
       </div>
 
@@ -383,7 +383,7 @@ function ResultsDashboard({ analysis, patient, onReset, onDownload, downloading,
           <div style={{ width: 36, height: 36, borderRadius: 10, background: "#0D9488", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <Activity size={18} color="white" />
           </div>
-          <span style={{ fontSize: 17, fontWeight: 700 }}>MediSense <span style={{ color: "#0D9488" }}>AI</span></span>
+          <span style={{ fontSize: 17, fontWeight: 700 }}>ClariMed</span>
           {demoMode && <span style={{ fontSize: 11, fontWeight: 600, color: "#B45309", background: "#FEF3C7", padding: "3px 10px", borderRadius: 99, marginLeft: 4 }}>Demo mode</span>}
         </div>
         <div style={{ display: "flex", gap: 10 }}>
@@ -527,7 +527,7 @@ function ResultsDashboard({ analysis, patient, onReset, onDownload, downloading,
         {/* Footer */}
         <div style={{ textAlign: "center", padding: "24px 0 8px", borderTop: "1px solid #E2E8F0", marginTop: 32 }}>
           <p style={{ fontSize: 11, color: "#CBD5E1", margin: 0, lineHeight: 1.7 }}>
-            MediSense AI is for informational purposes only and does not constitute medical advice.<br />
+            ClariMed is for informational purposes only and does not constitute medical advice.<br />
             Always consult a qualified healthcare professional before making any health decisions.
           </p>
         </div>

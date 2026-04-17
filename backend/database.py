@@ -6,7 +6,7 @@ from datetime import datetime, timezone, timedelta
 from typing import List, Dict, Any, Optional
 
 from dotenv import load_dotenv
-from pymongo import MongoClient, DESCENDING
+from pymongo import MongoClient, DESCENDING, ASCENDING
 from pymongo.collection import Collection
 
 load_dotenv()
@@ -14,6 +14,18 @@ load_dotenv()
 _CLIENT: Optional[MongoClient] = None
 _COLLECTION: Optional[Collection] = None
 _REMINDERS_COLLECTION: Optional[Collection] = None
+
+
+def _to_iso_utc(value: Any) -> Optional[str]:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        else:
+            value = value.astimezone(timezone.utc)
+        return value.isoformat()
+    return str(value)
 
 
 def _coerce_int(value: Optional[str], default: int) -> int:
@@ -53,7 +65,7 @@ def _get_collection() -> Collection:
         return _COLLECTION
 
     mongodb_uri = _discover_mongodb_uri()
-    db_name = os.getenv("MONGODB_DB_NAME", "medisense")
+    db_name = os.getenv("MONGODB_DB_NAME", "clarimed")
     collection_name = os.getenv("MONGODB_REPORTS_COLLECTION", "reports")
 
     _CLIENT = MongoClient(
@@ -79,12 +91,14 @@ def _get_reminders_collection() -> Collection:
         return _REMINDERS_COLLECTION
 
     _ = _get_collection()
-    db_name = os.getenv("MONGODB_DB_NAME", "medisense")
+    db_name = os.getenv("MONGODB_DB_NAME", "clarimed")
     reminders_collection_name = os.getenv("MONGODB_REMINDERS_COLLECTION", "reminders")
 
     _REMINDERS_COLLECTION = _CLIENT[db_name][reminders_collection_name]
     _REMINDERS_COLLECTION.create_index([("user_email", DESCENDING), ("due_at", DESCENDING)])
     _REMINDERS_COLLECTION.create_index([("due_at", DESCENDING)])
+    _REMINDERS_COLLECTION.create_index([("user_email", DESCENDING), ("status", DESCENDING), ("due_at", ASCENDING)])
+    _REMINDERS_COLLECTION.create_index([("notification_sent_at", DESCENDING)])
     return _REMINDERS_COLLECTION
 
 
@@ -111,12 +125,57 @@ def save_report(user_email: str, analysis_data: Dict[str, Any]) -> str:
     return report_id
 
 
+def _serialize_reminder(row: Dict[str, Any]) -> Dict[str, Any]:
+    created_at = row.get("created_at")
+    due_at = row.get("due_at")
+    notification_sent_at = row.get("notification_sent_at")
+    return {
+        "id": row.get("_id"),
+        "user_email": row.get("user_email"),
+        "report_id": row.get("report_id"),
+        "health_score": row.get("health_score"),
+        "remind_in_days": row.get("remind_in_days"),
+        "created_at": _to_iso_utc(created_at),
+        "due_at": _to_iso_utc(due_at),
+        "status": row.get("status", "scheduled"),
+        "channel": row.get("channel", "in_app"),
+        "notification_sent_at": _to_iso_utc(notification_sent_at),
+    }
+
+
+def get_reminders_by_report_ids(user_email: str, report_ids: List[str]) -> Dict[str, List[Dict[str, Any]]]:
+    if not report_ids:
+        return {}
+
+    collection = _get_reminders_collection()
+    cursor = collection.find(
+        {
+            "user_email": user_email,
+            "status": "scheduled",
+            "report_id": {"$in": report_ids},
+        }
+    ).sort("due_at", ASCENDING)
+
+    reminders_map: Dict[str, List[Dict[str, Any]]] = {}
+    for row in cursor:
+        report_id = row.get("report_id")
+        if not report_id:
+            continue
+        reminders_map.setdefault(report_id, []).append(_serialize_reminder(row))
+
+    return reminders_map
+
+
 def get_reports_by_user(user_email: str) -> List[Dict[str, Any]]:
     collection = _get_collection()
     cursor = collection.find({"user_email": user_email}).sort("created_at", DESCENDING)
 
+    rows = list(cursor)
+    report_ids = [str(row.get("_id")) for row in rows if row.get("_id")]
+    reminders_map = get_reminders_by_report_ids(user_email, report_ids)
+
     results: List[Dict[str, Any]] = []
-    for row in cursor:
+    for row in rows:
         raw_payload = row.get("report_json") or {}
         if isinstance(raw_payload, str):
             try:
@@ -127,7 +186,8 @@ def get_reports_by_user(user_email: str) -> List[Dict[str, Any]]:
         data = dict(raw_payload)
         data["id"] = row.get("_id")
         created_at = row.get("created_at")
-        data["created_at"] = created_at.isoformat() if hasattr(created_at, "isoformat") else str(created_at)
+        data["created_at"] = _to_iso_utc(created_at)
+        data["notifications"] = reminders_map.get(str(row.get("_id")), [])
         results.append(data)
     return results
 
@@ -148,8 +208,23 @@ def get_report_by_id(report_id: str) -> Optional[Dict[str, Any]]:
     data = dict(raw_payload)
     data["id"] = row.get("_id")
     created_at = row.get("created_at")
-    data["created_at"] = created_at.isoformat() if hasattr(created_at, "isoformat") else str(created_at)
+    data["created_at"] = _to_iso_utc(created_at)
+    user_email = row.get("user_email")
+    if user_email:
+        reminders_map = get_reminders_by_report_ids(str(user_email), [report_id])
+        data["notifications"] = reminders_map.get(report_id, [])
+    else:
+        data["notifications"] = []
     return data
+
+
+def report_belongs_to_user(report_id: str, user_email: str) -> bool:
+    collection = _get_collection()
+    row = collection.find_one(
+        {"_id": report_id, "user_email": user_email},
+        projection={"_id": 1},
+    )
+    return row is not None
 
 
 def save_test_reminder(
@@ -173,6 +248,7 @@ def save_test_reminder(
         "due_at": due_at,
         "status": "scheduled",
         "channel": "in_app",
+        "notification_sent_at": None,
     }
 
     collection = _get_reminders_collection()
@@ -188,3 +264,54 @@ def save_test_reminder(
         "due_at": due_at.isoformat(),
         "status": "scheduled",
     }
+
+
+def get_test_reminders_by_user(user_email: str) -> List[Dict[str, Any]]:
+    collection = _get_reminders_collection()
+    cursor = collection.find({"user_email": user_email, "status": "scheduled"}).sort("due_at", ASCENDING)
+
+    reminders: List[Dict[str, Any]] = []
+    for row in cursor:
+        reminders.append(_serialize_reminder(row))
+    return reminders
+
+
+def get_due_reminders_by_user(user_email: str) -> List[Dict[str, Any]]:
+    collection = _get_reminders_collection()
+    now_utc = datetime.now(timezone.utc)
+    cursor = collection.find(
+        {
+            "user_email": user_email,
+            "status": "scheduled",
+            "due_at": {"$lte": now_utc},
+            "$or": [
+                {"notification_sent_at": None},
+                {"notification_sent_at": {"$exists": False}},
+            ],
+        }
+    ).sort("due_at", ASCENDING)
+
+    reminders: List[Dict[str, Any]] = []
+    for row in cursor:
+        reminders.append(_serialize_reminder(row))
+    return reminders
+
+
+def mark_reminder_as_notified(reminder_id: str, user_email: str) -> bool:
+    collection = _get_reminders_collection()
+    result = collection.update_one(
+        {
+            "_id": reminder_id,
+            "user_email": user_email,
+            "$or": [
+                {"notification_sent_at": None},
+                {"notification_sent_at": {"$exists": False}},
+            ],
+        },
+        {
+            "$set": {
+                "notification_sent_at": datetime.now(timezone.utc),
+            }
+        },
+    )
+    return result.modified_count > 0

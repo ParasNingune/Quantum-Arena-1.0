@@ -2,7 +2,7 @@
 from dotenv import load_dotenv
 
 print("\n" + "="*50)
-print("🚀 MEDISENSE AI — ROBUST TEST")
+print("🚀 CLARIMED — ROBUST TEST")
 print("="*50)
 
 load_dotenv()

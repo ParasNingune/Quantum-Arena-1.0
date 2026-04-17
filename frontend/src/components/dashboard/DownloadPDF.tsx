@@ -27,7 +27,7 @@ export default function DownloadPDF({ analysisData }: { analysisData: any }) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'MediSense_Report.pdf';
+      a.download = 'ClariMed_Report.pdf';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

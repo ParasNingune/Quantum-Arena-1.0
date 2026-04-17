@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Copy, CheckCircle, Loader2, AlertTriangle, ChevronDown, Download, FileText, Clock } from 'lucide-react';
+import { Copy, CheckCircle, Loader2, AlertTriangle, ChevronDown, Download, FileText, Clock, Bell } from 'lucide-react';
 import HealthScoreGauge from '../../components/dashboard/HealthScoreGauge';
 import HumanReadableTests from '../../components/dashboard/HumanReadableTests';
 import TrendRibbon from '../../components/dashboard/TrendRibbon';
@@ -81,8 +81,9 @@ const TABS = [
 /* ──────────────────────────────────────────── */
 /* RESULTS VIEW — Zen Medical Bento Grid        */
 /* ──────────────────────────────────────────── */
-function ResultsView({ results, onReset, user, onLogout, onViewReport }: { results: any; onReset: () => void; user: { name: string; email: string }; onLogout: () => void; onViewReport?: (r: any) => void }) {
+function ResultsView({ results, onReset, user, onLogout, onOpenNotifications, notificationCount, onViewReport }: { results: any; onReset: () => void; user: { name: string; email: string }; onLogout: () => void; onOpenNotifications: () => void; notificationCount: number; onViewReport?: (r: any) => void }) {
   const allTests = results.all_tests || results.tests || [];
+  const healthScore = Number(results?.health_score ?? 0);
   const doctorQuestions = results.doctor_questions || [];
   const patterns = results.patterns || [];
   const predictedCondition = patterns.length
@@ -125,10 +126,10 @@ function ResultsView({ results, onReset, user, onLogout, onViewReport }: { resul
         }}
       >
         <Link href="/" className="font-bold text-xl tracking-tight transition-colors" style={{ color: 'var(--zen-text)' }}>
-          MediSense AI
+          ClariMed
         </Link>
-        <div className="flex items-center space-x-4">
-          <div className="flex flex-col items-end">
+        <div className="flex items-center gap-2 sm:gap-4 flex-wrap sm:flex-nowrap justify-end">
+          <div className="hidden sm:flex flex-col items-end">
             <span className="text-sm font-medium" style={{ color: 'var(--zen-text)' }}>{user.name}</span>
             <span className="text-xs" style={{ color: 'var(--zen-text-faint)' }}>{user.email}</span>
           </div>
@@ -142,6 +143,17 @@ function ResultsView({ results, onReset, user, onLogout, onViewReport }: { resul
           >
             {user.name.charAt(0).toUpperCase()}
           </div>
+          <button
+            onClick={onReset}
+            className="zen-btn-ghost"
+            style={{ fontSize: '0.8rem', padding: '8px 12px' }}
+          >
+            Upload Report
+          </button>
+          <button onClick={onOpenNotifications} className="zen-btn-ghost" style={{ fontSize: '0.8rem', padding: '8px 12px' }}>
+            <Bell className="w-4 h-4" />
+            Notifications ({notificationCount})
+          </button>
           <button onClick={onLogout} className="zen-btn-ghost" style={{ fontSize: '0.8rem', padding: '8px 16px' }}>
             Log Out
           </button>
@@ -182,20 +194,20 @@ function ResultsView({ results, onReset, user, onLogout, onViewReport }: { resul
               transition={{ duration: 0.3 }}
             >
               <section className="mb-8">
-                <div className="zen-glass-solid p-5" style={{ borderRadius: '16px' }}>
-                  <h3 className="font-semibold text-sm mb-1" style={{ color: 'var(--zen-text)' }}>How to read this report</h3>
-                  <p className="text-xs leading-relaxed" style={{ color: 'var(--zen-text-muted)' }}>
+                <div className="zen-glass-solid p-6" style={{ borderRadius: '16px' }}>
+                  <h3 className="zen-readable-title mb-1.5">How to read this report</h3>
+                  <p className="zen-readable-body">
                     Start with your Health Score, then review any biomarker marked as "slightly off" or "needs attention". Use Action Plan for practical next steps and Questions for Your Doctor for your appointment.
                   </p>
                 </div>
               </section>
 
               <section className="mb-8">
-                <div className="zen-glass-solid p-5" style={{ borderRadius: '16px' }}>
+                <div className="zen-glass-solid p-6" style={{ borderRadius: '16px' }}>
                   <div className="flex items-center justify-between gap-3 mb-2">
-                    <h3 className="font-semibold text-sm" style={{ color: 'var(--zen-text)' }}>AI Predicted Condition</h3>
+                    <h3 className="zen-readable-title">AI Predicted Condition</h3>
                     {predictedCondition && (
-                      <span className="zen-pill zen-pill-brand" style={{ fontSize: '0.68rem', padding: '3px 10px' }}>
+                      <span className="zen-pill zen-pill-brand" style={{ fontSize: '0.75rem', padding: '4px 10px' }}>
                         {Math.round((predictedCondition.confidence || 0) * 100)}% confidence
                       </span>
                     )}
@@ -203,15 +215,15 @@ function ResultsView({ results, onReset, user, onLogout, onViewReport }: { resul
 
                   {predictedCondition ? (
                     <>
-                      <p className="text-base font-semibold mb-1" style={{ color: 'var(--zen-text)' }}>
+                      <p className="text-lg font-semibold mb-1" style={{ color: 'var(--zen-text)' }}>
                         {predictedCondition.name}
                       </p>
-                      <p className="text-xs leading-relaxed" style={{ color: 'var(--zen-text-muted)' }}>
+                      <p className="zen-readable-body">
                         {predictedCondition.explanation || 'Detected from the biomarker relationships in your report.'}
                       </p>
                     </>
                   ) : (
-                    <p className="text-xs leading-relaxed" style={{ color: 'var(--zen-text-muted)' }}>
+                    <p className="zen-readable-body">
                       No strong condition pattern was predicted from this report.
                     </p>
                   )}
@@ -227,8 +239,8 @@ function ResultsView({ results, onReset, user, onLogout, onViewReport }: { resul
                   <TrendRibbon tests={allTests} />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-base mb-1" style={{ color: 'var(--zen-text)' }}>Your Biomarkers</h3>
-                  <p className="text-xs mb-4" style={{ color: 'var(--zen-text-faint)' }}>
+                  <h3 className="font-semibold text-lg mb-1" style={{ color: 'var(--zen-text)' }}>Your Biomarkers</h3>
+                  <p className="text-sm mb-4" style={{ color: 'var(--zen-text-muted)' }}>
                     Tap any card to see a plain-English explanation
                   </p>
                   <HumanReadableTests tests={allTests} />
@@ -262,7 +274,7 @@ function ResultsView({ results, onReset, user, onLogout, onViewReport }: { resul
                   <div className="flex justify-between items-center mb-4">
                     <div>
                       <h3 className="font-semibold text-base" style={{ color: 'var(--zen-text)' }}>Questions for Your Doctor</h3>
-                      <p className="text-xs" style={{ color: 'var(--zen-text-faint)' }}>Bring these to your next appointment</p>
+                      <p className="text-sm" style={{ color: 'var(--zen-text-muted)' }}>Bring these to your next appointment</p>
                     </div>
                   </div>
                   <div className="space-y-2">
@@ -313,9 +325,11 @@ function ResultsView({ results, onReset, user, onLogout, onViewReport }: { resul
                 <SmartArticles resources={results.curated_resources} />
               </section>
 
-              <section className="mb-12">
-                <GovPolicies analysisData={results} />
-              </section>
+              {healthScore < 45 && (
+                <section className="mb-12">
+                  <GovPolicies analysisData={results} />
+                </section>
+              )}
             </motion.div>
           )}
 
@@ -356,6 +370,7 @@ function ResultsView({ results, onReset, user, onLogout, onViewReport }: { resul
 /* MAIN DASHBOARD                               */
 /* ──────────────────────────────────────────── */
 export default function Dashboard() {
+  const QUICK_REMINDER_PRESETS = [7, 30, 60, 90];
   const router = useRouter();
   const [user, setUser] = useState<{ name: string, email: string } | null>(null);
   const [isBackendOnline, setIsBackendOnline] = useState(true);
@@ -367,6 +382,14 @@ export default function Dashboard() {
   const [reminderStep, setReminderStep] = useState<'ask' | 'days'>('ask');
   const [reminderSaving, setReminderSaving] = useState(false);
   const [reminderMessage, setReminderMessage] = useState<string | null>(null);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [scheduledNotifications, setScheduledNotifications] = useState<any[]>([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [notificationsError, setNotificationsError] = useState<string | null>(null);
+  const [quickReminderDays, setQuickReminderDays] = useState('30');
+  const [quickReminderSaving, setQuickReminderSaving] = useState(false);
+  const [quickReminderMessage, setQuickReminderMessage] = useState<string | null>(null);
+  const dueReminderCheckInFlightRef = useRef(false);
 
   useEffect(() => {
     const saved = localStorage.getItem('medreport_user');
@@ -505,6 +528,17 @@ export default function Dashboard() {
       }
 
       setReminderMessage(`Reminder scheduled in ${days} days.`);
+      setScheduledNotifications((prev) => [
+        {
+          id: `temp-${Date.now()}`,
+          remind_in_days: days,
+          due_at: new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString(),
+          health_score: results?.health_score,
+          report_id: results?.id,
+          status: 'scheduled',
+        },
+        ...prev,
+      ]);
       setTimeout(() => setShowReminderPrompt(false), 1200);
     } catch (e: any) {
       setReminderMessage(e?.message || 'Failed to save reminder.');
@@ -513,20 +547,396 @@ export default function Dashboard() {
     }
   };
 
+  const handleOpenNotifications = async () => {
+    if (!user?.email) return;
+
+    setShowNotifications(true);
+    setNotificationsLoading(true);
+    setNotificationsError(null);
+    try {
+      const res = await fetch(apiUrl(`/reminders/${encodeURIComponent(user.email)}`));
+      if (!res.ok) {
+        let message = 'Failed to fetch scheduled notifications.';
+        try {
+          const err = await res.json();
+          if (err?.detail) message = err.detail;
+        } catch {}
+        throw new Error(message);
+      }
+
+      const data = await res.json();
+      setScheduledNotifications(data?.reminders || []);
+    } catch (e: any) {
+      setNotificationsError(e?.message || 'Failed to fetch scheduled notifications.');
+    } finally {
+      setNotificationsLoading(false);
+    }
+  };
+
+  const handleViewReminderReport = async (reportId?: string) => {
+    if (!reportId) return;
+
+    try {
+      const res = await fetch(apiUrl(`/report/${encodeURIComponent(reportId)}`));
+      if (!res.ok) {
+        let message = 'Failed to load linked report.';
+        try {
+          const err = await res.json();
+          if (err?.detail) message = err.detail;
+        } catch {}
+        throw new Error(message);
+      }
+
+      const data = await res.json();
+      const report = data?.report;
+      if (!report) {
+        throw new Error('Linked report not found.');
+      }
+
+      report.all_tests = report.all_tests || report.tests || [];
+      report.doctor_questions = report.doctor_questions || [];
+      if (report.doctor_questions.length === 0) {
+        (report.patterns || []).forEach((pattern: any) => {
+          if (pattern?.doctor_questions) {
+            report.doctor_questions.push(...pattern.doctor_questions);
+          }
+        });
+        report.doctor_questions = Array.from(new Set(report.doctor_questions));
+      }
+
+      setResults(report);
+      setViewState('results');
+      setShowNotifications(false);
+      setNotificationsError(null);
+    } catch (e: any) {
+      setNotificationsError(e?.message || 'Failed to load linked report.');
+    }
+  };
+
+  const handleCreateQuickNotification = async () => {
+    if (!user?.email) return;
+
+    const days = Number(quickReminderDays);
+    if (!Number.isInteger(days) || days <= 0) {
+      setQuickReminderMessage('Enter valid days (> 0).');
+      return;
+    }
+
+    try {
+      setQuickReminderSaving(true);
+      setQuickReminderMessage(null);
+
+      const res = await fetch(apiUrl('/reminders'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_email: user.email,
+          remind_in_days: days,
+          report_id: results?.id,
+          health_score: results?.health_score,
+        }),
+      });
+
+      if (!res.ok) {
+        let message = 'Failed to create notification.';
+        try {
+          const err = await res.json();
+          if (err?.detail) message = err.detail;
+        } catch {}
+        throw new Error(message);
+      }
+
+      const data = await res.json();
+      const created = data?.reminder;
+      if (created) {
+        setScheduledNotifications((prev) => [created, ...prev]);
+      }
+      setQuickReminderMessage(`Created reminder for ${days} days.`);
+    } catch (e: any) {
+      setQuickReminderMessage(e?.message || 'Failed to create notification.');
+    } finally {
+      setQuickReminderSaving(false);
+    }
+  };
+
+  const checkDueBrowserNotifications = async () => {
+    if (!user?.email) return;
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+    if (dueReminderCheckInFlightRef.current) return;
+
+    let permission = Notification.permission;
+    if (permission === 'default') {
+      try {
+        permission = await Notification.requestPermission();
+      } catch {
+        return;
+      }
+    }
+
+    if (permission !== 'granted') return;
+
+    try {
+      dueReminderCheckInFlightRef.current = true;
+      const res = await fetch(apiUrl(`/reminders/due/${encodeURIComponent(user.email)}`));
+      if (!res.ok) return;
+
+      const data = await res.json();
+      const dueReminders = Array.isArray(data?.reminders) ? data.reminders : [];
+
+      for (const reminder of dueReminders) {
+        const title = 'ClariMed Reminder';
+        const body = `Your scheduled health reminder is due today${reminder?.health_score !== null && reminder?.health_score !== undefined ? ` • Health score: ${reminder.health_score}` : ''}.`;
+
+        const notification = new Notification(title, {
+          body,
+          tag: `clarimed-reminder-${reminder.id}`,
+        });
+
+        notification.onclick = async () => {
+          window.focus();
+          if (reminder?.report_id) {
+            await handleViewReminderReport(reminder.report_id);
+          }
+        };
+
+        await fetch(apiUrl(`/reminders/${encodeURIComponent(reminder.id)}/mark-notified`), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_email: user.email }),
+        });
+      }
+    } catch (err) {
+      console.error('Due reminder browser notification check failed:', err);
+    } finally {
+      dueReminderCheckInFlightRef.current = false;
+    }
+  };
+
+  useEffect(() => {
+    if (!user?.email) return;
+
+    checkDueBrowserNotifications();
+    const intervalId = window.setInterval(() => {
+      checkDueBrowserNotifications();
+    }, 60 * 1000);
+
+    return () => window.clearInterval(intervalId);
+  }, [user?.email]);
+
+  const renderNotificationsModal = () => {
+    if (!showNotifications) return null;
+
+    return (
+      <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/55 px-4">
+        <div className="w-full max-w-2xl rounded-2xl border p-6 shadow-2xl max-h-[80vh] overflow-y-auto" style={{ background: 'var(--zen-surface-solid)', borderColor: 'var(--zen-border)' }}>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold" style={{ color: 'var(--zen-text)' }}>Scheduled Notifications</h3>
+            <button
+              onClick={() => setShowNotifications(false)}
+              className="px-3 py-1.5 rounded-lg border transition-colors"
+              style={{ borderColor: 'var(--zen-border)', color: 'var(--zen-text-secondary)' }}
+            >
+              Close
+            </button>
+          </div>
+
+          <div className="rounded-xl border p-4 mb-4" style={{ borderColor: 'var(--zen-border)', background: 'var(--zen-bg-soft)' }}>
+            <p className="text-sm font-semibold mb-2" style={{ color: 'var(--zen-text)' }}>Create New Notification</p>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={1}
+                value={quickReminderDays}
+                onChange={(e) => setQuickReminderDays(e.target.value)}
+                className="w-32 border rounded-lg px-3 py-2 outline-none"
+                style={{ borderColor: 'var(--zen-border)', background: 'white', color: 'var(--zen-text)' }}
+              />
+              <span className="text-sm" style={{ color: 'var(--zen-text-muted)' }}>days from now</span>
+              <button
+                onClick={handleCreateQuickNotification}
+                disabled={quickReminderSaving}
+                className="ml-auto px-3 py-2 rounded-lg bg-emerald-500 text-white hover:bg-emerald-400 transition-colors disabled:opacity-50"
+              >
+                {quickReminderSaving ? 'Creating...' : 'Create'}
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2 mt-3">
+              {QUICK_REMINDER_PRESETS.map((day) => {
+                const active = quickReminderDays === String(day);
+                return (
+                  <button
+                    key={`quick-${day}`}
+                    onClick={() => setQuickReminderDays(String(day))}
+                    className="px-2.5 py-1 rounded-lg text-xs border transition-colors"
+                    style={{
+                      borderColor: active ? 'rgba(16,185,129,0.7)' : 'var(--zen-border)',
+                      background: active ? 'rgba(16,185,129,0.2)' : 'transparent',
+                      color: active ? '#047857' : 'var(--zen-text-muted)',
+                    }}
+                  >
+                    {day} days
+                  </button>
+                );
+              })}
+            </div>
+            {quickReminderMessage && (
+              <p className="text-xs mt-2" style={{ color: quickReminderMessage.toLowerCase().includes('failed') ? '#FCA5A5' : '#34D399' }}>
+                {quickReminderMessage}
+              </p>
+            )}
+          </div>
+
+          {notificationsLoading ? (
+            <p className="text-sm" style={{ color: 'var(--zen-text-muted)' }}>Loading scheduled notifications...</p>
+          ) : notificationsError && scheduledNotifications.length === 0 ? (
+            <p className="text-sm text-red-600">{notificationsError}</p>
+          ) : scheduledNotifications.length === 0 ? (
+            <p className="text-sm" style={{ color: 'var(--zen-text-muted)' }}>No scheduled notifications yet.</p>
+          ) : (
+            <div className="space-y-3">
+              {scheduledNotifications.map((item, index) => (
+                <div
+                  key={item.id || index}
+                  className="rounded-xl border p-4"
+                  style={{ borderColor: 'var(--zen-border)', background: 'white' }}
+                >
+                  <div className="flex justify-between items-start gap-3">
+                    <div>
+                      <p className="text-sm font-semibold" style={{ color: 'var(--zen-text)' }}>Reminder in {item.remind_in_days} days</p>
+                      <p className="text-xs mt-1" style={{ color: 'var(--zen-text-muted)' }}>
+                        Due: {item.due_at ? new Date(item.due_at).toLocaleString() : '—'}
+                      </p>
+                    </div>
+                    <span className="text-xs px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-700 border border-emerald-200">
+                      {item.status || 'scheduled'}
+                    </span>
+                  </div>
+                  <div className="mt-2 text-xs" style={{ color: 'var(--zen-text-muted)' }}>
+                    Health score: {item.health_score ?? '—'}
+                    {item.report_id ? ` • Report: ${item.report_id}` : ''}
+                  </div>
+                  <div className="mt-3 flex justify-end">
+                    <button
+                      onClick={() => handleViewReminderReport(item.report_id)}
+                      disabled={!item.report_id}
+                      className="px-3 py-1.5 rounded-lg text-xs border transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      style={{ borderColor: 'var(--zen-border)', color: 'var(--zen-text-secondary)' }}
+                    >
+                      View Report
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   if (!user) return <div className="min-h-screen bg-black" />;
 
   /* ── Results View: Zen Medical Light Theme ── */
   if (viewState === 'results' && results) {
     return (
-      <ResultsView
-        results={results}
-        onReset={handleReset}
-        user={user}
-        onLogout={handleLogout}
-        onViewReport={(report: any) => {
-          setResults(report);
-        }}
-      />
+      <>
+        <ResultsView
+          results={results}
+          onReset={handleReset}
+          user={user}
+          onLogout={handleLogout}
+          onOpenNotifications={handleOpenNotifications}
+          notificationCount={scheduledNotifications.length}
+          onViewReport={(report: any) => {
+            setResults(report);
+          }}
+        />
+
+        {renderNotificationsModal()}
+
+        {showReminderPrompt && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 px-4">
+            <div className="w-full max-w-md rounded-2xl border p-6 shadow-2xl" style={{ background: 'var(--zen-surface-solid)', borderColor: 'var(--zen-border)' }}>
+              <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--zen-text)' }}>Low Health Score Alert</h3>
+              {reminderStep === 'ask' ? (
+                <>
+                  <p className="text-sm mb-5" style={{ color: 'var(--zen-text-muted)' }}>
+                    Your health score is below 45. Do you want a reminder notification for your next test?
+                  </p>
+                  <div className="flex justify-end gap-3">
+                    <button
+                      onClick={() => setShowReminderPrompt(false)}
+                      className="px-4 py-2 rounded-lg border transition-colors"
+                      style={{ borderColor: 'var(--zen-border)', color: 'var(--zen-text-secondary)' }}
+                    >
+                      No
+                    </button>
+                    <button
+                      onClick={() => setReminderStep('days')}
+                      className="px-4 py-2 rounded-lg bg-emerald-500 text-white hover:bg-emerald-400 transition-colors"
+                    >
+                      Yes
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm mb-3" style={{ color: 'var(--zen-text-muted)' }}>After how many days should we remind you?</p>
+                  <input
+                    type="number"
+                    min={1}
+                    value={reminderDays}
+                    onChange={(e) => setReminderDays(e.target.value)}
+                    className="w-full border rounded-lg px-3 py-2 outline-none"
+                    style={{ borderColor: 'var(--zen-border)', background: 'white', color: 'var(--zen-text)' }}
+                  />
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    {QUICK_REMINDER_PRESETS.map((day) => {
+                      const active = reminderDays === String(day);
+                      return (
+                        <button
+                          key={`low-score-${day}`}
+                          onClick={() => setReminderDays(String(day))}
+                          className="px-2.5 py-1 rounded-lg text-xs border transition-colors"
+                          style={{
+                            borderColor: active ? 'rgba(16,185,129,0.7)' : 'var(--zen-border)',
+                            background: active ? 'rgba(16,185,129,0.2)' : 'transparent',
+                            color: active ? '#047857' : 'var(--zen-text-muted)',
+                          }}
+                        >
+                          {day} days
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {reminderMessage && (
+                    <p className="text-xs mt-3" style={{ color: reminderMessage.includes('scheduled') ? '#34D399' : '#FCA5A5' }}>
+                      {reminderMessage}
+                    </p>
+                  )}
+                  <div className="flex justify-end gap-3 mt-5">
+                    <button
+                      onClick={() => setReminderStep('ask')}
+                      className="px-4 py-2 rounded-lg border transition-colors"
+                      style={{ borderColor: 'var(--zen-border)', color: 'var(--zen-text-secondary)' }}
+                      disabled={reminderSaving}
+                    >
+                      Back
+                    </button>
+                    <button
+                      onClick={handleSaveReminder}
+                      className="px-4 py-2 rounded-lg bg-emerald-500 text-white hover:bg-emerald-400 transition-colors disabled:opacity-50"
+                      disabled={reminderSaving}
+                    >
+                      {reminderSaving ? 'Saving...' : 'Save Reminder'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+      </>
     );
   }
 
@@ -549,6 +959,12 @@ export default function Dashboard() {
             <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center font-bold text-lg text-white">
               {user.name.charAt(0).toUpperCase()}
             </div>
+            <button
+              onClick={handleOpenNotifications}
+              className="text-sm border border-white/20 hover:bg-white/10 px-4 py-2 rounded-lg transition-colors"
+            >
+              Notifications ({scheduledNotifications.length})
+            </button>
             <button
               onClick={handleLogout}
               className="text-sm border border-white/20 hover:bg-white/10 px-4 py-2 rounded-lg transition-colors ml-4"
@@ -638,6 +1054,25 @@ export default function Dashboard() {
                     onChange={(e) => setReminderDays(e.target.value)}
                     className="w-full bg-white/[0.05] border border-white/20 rounded-lg px-3 py-2 text-white outline-none focus:border-white/40"
                   />
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    {QUICK_REMINDER_PRESETS.map((day) => {
+                      const active = reminderDays === String(day);
+                      return (
+                        <button
+                          key={`upload-low-score-${day}`}
+                          onClick={() => setReminderDays(String(day))}
+                          className="px-2.5 py-1 rounded-lg text-xs border transition-colors"
+                          style={{
+                            borderColor: active ? 'rgba(16,185,129,0.7)' : 'rgba(255,255,255,0.2)',
+                            background: active ? 'rgba(16,185,129,0.2)' : 'transparent',
+                            color: active ? '#6EE7B7' : 'rgba(255,255,255,0.75)',
+                          }}
+                        >
+                          {day} days
+                        </button>
+                      );
+                    })}
+                  </div>
                   {reminderMessage && (
                     <p className="text-xs mt-3" style={{ color: reminderMessage.includes('scheduled') ? '#34D399' : '#FCA5A5' }}>
                       {reminderMessage}
@@ -664,6 +1099,8 @@ export default function Dashboard() {
             </div>
           </div>
         )}
+
+        {renderNotificationsModal()}
       </div>
     </div>
   );

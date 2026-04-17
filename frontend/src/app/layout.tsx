@@ -19,7 +19,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "MediSense AI — Health Dashboard",
+  title: "ClariMed — Health Dashboard",
   description: "AI-powered medical report analysis with actionable health insights.",
 };
 

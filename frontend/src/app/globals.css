@@ -12,6 +12,7 @@
 
   /* === Zen Medical — Light Results === */
   --zen-bg: #F8F9FA;
+  --zen-bg-soft: #F3F5F8;
   --zen-bg-warm: #F5F3EF;
   --zen-surface: rgba(255, 255, 255, 0.72);
   --zen-surface-solid: #FFFFFF;
@@ -127,7 +128,12 @@ body {
   border-radius: 20px;
   box-shadow: var(--zen-shadow);
   transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-              box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+              box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.2s ease;
+}
+.zen-glass-solid:hover {
+  border-color: var(--zen-border-hover);
+  box-shadow: var(--zen-shadow-lg);
 }
 
 /* === Status Pills === */
@@ -272,6 +278,11 @@ body {
   box-shadow: var(--zen-shadow);
   transform: translateY(-1px);
 }
+.zen-btn-primary:focus-visible,
+.zen-btn-ghost:focus-visible {
+  outline: 2px solid var(--zen-brand-solid);
+  outline-offset: 2px;
+}
 .zen-btn-primary:active {
   transform: translateY(0);
 }
@@ -292,9 +303,22 @@ body {
   transition: background 0.2s, color 0.2s, border-color 0.2s;
 }
 .zen-btn-ghost:hover {
-  background: var(--zen-bg);
+  background: var(--zen-bg-soft);
   color: var(--zen-text);
   border-color: var(--zen-border-hover);
+}
+
+.zen-readable-title {
+  font-size: 1rem;
+  font-weight: 650;
+  line-height: 1.35;
+  color: var(--zen-text);
+}
+
+.zen-readable-body {
+  font-size: 0.9rem;
+  line-height: 1.65;
+  color: var(--zen-text-secondary);
 }
 
 /* === Animations === */

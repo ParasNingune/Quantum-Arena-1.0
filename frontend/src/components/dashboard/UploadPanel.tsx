@@ -193,10 +193,10 @@ export default function UploadPanel({ onAnalyze }: { onAnalyze: (file: File | nu
         <div className="relative z-10 text-center mb-8">
           <div className="inline-flex items-center gap-1.5 bg-white/[0.06] border border-white/[0.08] rounded-full px-4 py-1 mb-4">
             <span className="text-emerald-400 text-xs">●</span>
-            <span className="text-xs text-white/50 font-medium">AI Analysis Ready</span>
+            <span className="text-xs text-white/70 font-medium">AI Analysis Ready</span>
           </div>
           <h2 className="text-2xl font-semibold text-white tracking-tight">Upload Your Report</h2>
-          <p className="text-sm text-white/40 mt-1">Get a clear, easy-to-understand explanation in your selected language</p>
+          <p className="text-sm text-white/65 mt-1">Get a clear, easy-to-understand explanation in your selected language</p>
         </div>
 
         {/* — Drag Zone — */}
@@ -207,8 +207,8 @@ export default function UploadPanel({ onAnalyze }: { onAnalyze: (file: File | nu
           onClick={() => fileInputRef.current?.click()}
         >
           <UploadCloud className="w-10 h-10 text-white/25 mx-auto" />
-          <p className="text-white/60 font-medium mt-4">Drop your blood report here</p>
-          <p className="text-white/25 text-xs mt-1">PDF, JPG, JPEG, or PNG · Max 20MB</p>
+          <p className="text-white/80 font-medium mt-4">Drop your report here</p>
+          <p className="text-white/50 text-xs mt-1">PDF, JPG, JPEG, or PNG · Max 20MB</p>
           <input
             type="file"
             ref={fileInputRef}
@@ -228,20 +228,20 @@ export default function UploadPanel({ onAnalyze }: { onAnalyze: (file: File | nu
         <div className="relative z-10 flex flex-col gap-5 mb-6">
           {/* Age */}
           <div>
-            <label className="block text-xs text-white/40 font-medium mb-1.5">Age</label>
+            <label className="block text-xs text-white/65 font-medium mb-1.5">Age</label>
             <input
               type="number"
               placeholder="Your age"
               min="1" max="120"
               value={age}
               onChange={e => setAge(e.target.value)}
-              className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-4 py-3.5 text-white placeholder:text-white/20 focus:border-white/20 focus:bg-white/[0.05] transition-all outline-none"
+              className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-4 py-3.5 text-white/95 placeholder:text-white/40 focus:border-white/25 focus:bg-white/[0.06] transition-all outline-none"
             />
           </div>
 
           {/* Gender */}
           <div>
-            <label className="block text-xs text-white/40 font-medium mb-1.5">Biological Sex</label>
+            <label className="block text-xs text-white/65 font-medium mb-1.5">Biological Sex</label>
             <div className="grid grid-cols-2 gap-3">
               {['Male', 'Female'].map(g => (
                 <button
@@ -250,7 +250,7 @@ export default function UploadPanel({ onAnalyze }: { onAnalyze: (file: File | nu
                   className={`py-3 rounded-xl font-medium transition-all duration-200 border ${
                     gender === g
                       ? 'bg-white/10 border-white/20 text-white'
-                      : 'bg-white/[0.03] border-white/[0.08] text-white/40 hover:border-white/15 hover:text-white/60'
+                      : 'bg-white/[0.03] border-white/[0.08] text-white/65 hover:border-white/15 hover:text-white/85'
                   }`}
                 >
                   {g === 'Male' ? '♂ ' : '♀ '}{g}
@@ -261,12 +261,12 @@ export default function UploadPanel({ onAnalyze }: { onAnalyze: (file: File | nu
 
           {/* Language */}
           <div>
-            <label className="block text-xs text-white/40 font-medium mb-1.5">Language</label>
+            <label className="block text-xs text-white/65 font-medium mb-1.5">Language</label>
             <div className="relative">
               <select
                 value={language}
                 onChange={e => setLanguage(e.target.value)}
-                className="w-full appearance-none bg-white/[0.03] border border-white/[0.08] rounded-xl px-4 py-3.5 text-white focus:border-white/20 focus:bg-white/[0.05] transition-all outline-none pr-10"
+                className="w-full appearance-none bg-white/[0.03] border border-white/[0.08] rounded-xl px-4 py-3.5 text-white/95 focus:border-white/25 focus:bg-white/[0.06] transition-all outline-none pr-10"
               >
                 {['English', 'Hindi', 'Marathi', 'Tamil', 'Telugu', 'Bengali'].map(lang => (
                   <option key={lang} value={lang} className="bg-neutral-900 text-white">{lang}</option>
@@ -274,7 +274,7 @@ export default function UploadPanel({ onAnalyze }: { onAnalyze: (file: File | nu
               </select>
               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" />
             </div>
-            <p className="text-[11px] text-white/35 mt-1.5">Report explanations and recommendations will be generated in {language}.</p>
+            <p className="text-[11px] text-white/55 mt-1.5">Report explanations and recommendations will be generated in {language}.</p>
           </div>
         </div>
 
@@ -282,7 +282,7 @@ export default function UploadPanel({ onAnalyze }: { onAnalyze: (file: File | nu
           <div className="relative z-10 mb-5 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
             {formError && <p className="text-xs text-red-300">{formError}</p>}
             {!formError && missingFields.length > 0 && (
-              <p className="text-xs text-white/45">Please add: {missingFields.join(', ')}.</p>
+              <p className="text-xs text-white/70">Please add: {missingFields.join(', ')}.</p>
             )}
           </div>
         )}
@@ -293,7 +293,7 @@ export default function UploadPanel({ onAnalyze }: { onAnalyze: (file: File | nu
           disabled={isSubmitDisabled}
           className={`relative z-10 w-full rounded-2xl py-4 font-semibold transition-all duration-200 ${
             isSubmitDisabled
-              ? 'bg-white/5 text-white/20 cursor-not-allowed border border-white/5'
+              ? 'bg-white/5 text-white/35 cursor-not-allowed border border-white/5'
               : 'bg-white text-black hover:bg-white/90 shadow-[0_0_30px_rgba(255,255,255,0.1)] hover:shadow-[0_0_40px_rgba(255,255,255,0.2)]'
           }`}
         >

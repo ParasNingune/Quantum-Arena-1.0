@@ -1,6 +1,6 @@
 @echo off
 echo ============================================
-echo   MediSense AI — Backend Setup
+echo   ClariMed — Backend Setup
 echo ============================================
 
 echo.

@@ -71,7 +71,7 @@ export default function ChatWidget({ analysisData }: { analysisData: any }) {
       setMessages([
         {
           role: 'model',
-          content: "Hi! I'm your MediSense AI health assistant. I can help explain your test results, suggest lifestyle changes, and answer medical questions based on your report. How can I help you today?"
+          content: "Hi! I'm your ClariMed health assistant. I can help explain your test results, suggest lifestyle changes, and answer medical questions based on your report. How can I help you today?"
         }
       ]);
     }
@@ -132,7 +132,7 @@ export default function ChatWidget({ analysisData }: { analysisData: any }) {
                   exit={{ opacity: 0, x: 10 }}
                   className="absolute right-[80px] bg-white text-gray-800 px-4 py-2 rounded-xl text-sm font-semibold shadow-lg whitespace-nowrap"
                 >
-                  Chat with MediSense AI
+                  Chat with ClariMed
                 </motion.div>
               )}
             </AnimatePresence>
@@ -157,7 +157,7 @@ export default function ChatWidget({ analysisData }: { analysisData: any }) {
                   <span className="text-xl">🩺</span>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-sm" style={{ color: 'var(--zen-brand-text)' }}>MediSense AI</h3>
+                  <h3 className="font-semibold text-sm" style={{ color: 'var(--zen-brand-text)' }}>ClariMed</h3>
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <div className="w-2 h-2 rounded-full bg-green-500" />
                     <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--zen-brand-text)', opacity: 0.8 }}>Online</span>
