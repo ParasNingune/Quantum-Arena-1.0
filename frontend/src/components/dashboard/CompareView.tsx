@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Download, ShieldAlert, TrendingUp, HeartPulse } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
+import { apiUrl } from '../../lib/api';
 
 interface CompareViewProps {
   reports: [any, any];
@@ -28,7 +29,7 @@ export default function CompareView({ reports, onBack }: CompareViewProps) {
     // Fetch comparison text
     async function fetchComparison() {
       try {
-        const res = await fetch('http://127.0.0.1:8000/compare', {
+        const res = await fetch(apiUrl('/compare'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageCircle, X, Send, User, Bot, Loader2 } from 'lucide-react';
+import { apiUrl } from '../../lib/api';
 
 interface ChatMessage {
   role: 'user' | 'model';
@@ -85,7 +86,7 @@ export default function ChatWidget({ analysisData }: { analysisData: any }) {
     setIsTyping(true);
 
     try {
-      const res = await fetch('http://127.0.0.1:8000/chat', {
+      const res = await fetch(apiUrl('/chat'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

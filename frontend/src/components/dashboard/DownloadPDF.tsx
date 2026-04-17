@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Download, Loader2, Check } from 'lucide-react';
+import { apiUrl } from '../../lib/api';
 
 export default function DownloadPDF({ analysisData }: { analysisData: any }) {
   const [status, setStatus] = useState<'idle' | 'loading' | 'done'>('idle');
@@ -9,7 +10,7 @@ export default function DownloadPDF({ analysisData }: { analysisData: any }) {
   const handleDownload = async () => {
     setStatus('loading');
     try {
-      const res = await fetch('http://127.0.0.1:8000/export/pdf', {
+      const res = await fetch(apiUrl('/export/pdf'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

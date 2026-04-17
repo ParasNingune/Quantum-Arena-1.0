@@ -97,12 +97,11 @@ function DarkFluidCanvas() {
 }
 
 /* ─────────── Upload Panel ─────────── */
-export default function UploadPanel({ onAnalyze }: { onAnalyze: (file: File | null, age: string, gender: string, language: string, isDemo: boolean) => void }) {
+export default function UploadPanel({ onAnalyze }: { onAnalyze: (file: File | null, age: string, gender: string, language: string) => void }) {
   const [file, setFile] = useState<File | null>(null);
   const [age, setAge] = useState('');
   const [gender, setGender] = useState('');
   const [language, setLanguage] = useState('English');
-  const [isDemo, setIsDemo] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const mouse = useRef({ x: 0, y: 0 });
@@ -124,7 +123,7 @@ export default function UploadPanel({ onAnalyze }: { onAnalyze: (file: File | nu
     }
   };
 
-  const isSubmitDisabled = !file && !isDemo;
+  const isSubmitDisabled = !file || !age || !gender;
 
   /* Track mouse position for the fluid canvas */
   const handleContainerMouseMove = useCallback((e: React.MouseEvent) => {
@@ -248,23 +247,9 @@ export default function UploadPanel({ onAnalyze }: { onAnalyze: (file: File | nu
           </div>
         </div>
 
-        {/* — Demo Mode — */}
-        <div className="relative z-10 flex items-center justify-between py-3 border-t border-white/[0.06] mt-2 mb-6">
-          <div>
-            <p className="text-sm text-white/60">Demo Mode</p>
-            <p className="text-xs text-white/30">Skip upload, load sample data</p>
-          </div>
-          <div
-            className={`w-12 h-6 rounded-full cursor-pointer transition-colors duration-200 relative flex items-center ${isDemo ? 'bg-emerald-500/80' : 'bg-white/10'}`}
-            onClick={() => setIsDemo(!isDemo)}
-          >
-            <div className={`w-4 h-4 rounded-full absolute transition-transform duration-200 ${isDemo ? 'translate-x-7 bg-white' : 'translate-x-1 bg-white/70'}`} />
-          </div>
-        </div>
-
         {/* — CTA — */}
         <button
-          onClick={() => onAnalyze(file, age, gender, language, isDemo)}
+          onClick={() => onAnalyze(file, age, gender, language)}
           disabled={isSubmitDisabled}
           className={`relative z-10 w-full rounded-2xl py-4 font-semibold transition-all duration-200 ${
             isSubmitDisabled

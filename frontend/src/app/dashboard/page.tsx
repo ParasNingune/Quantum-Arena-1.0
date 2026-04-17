@@ -17,44 +17,7 @@ import UploadPanel from '../../components/dashboard/UploadPanel';
 import ChatWidget from '../../components/dashboard/ChatWidget';
 import PastReportsTab from '../../components/dashboard/PastReportsTab';
 import CanvasSequence from "@/components/CanvasSequence";
-
-/* ──────────────────────────────────────────── */
-/* MOCK DATA (for demo mode)                    */
-/* ──────────────────────────────────────────── */
-const MOCK_DATA = {
-  health_score: 62, health_grade: "Fair",
-  health_summary: "Your report shows mild anemia patterns and borderline cholesterol. Most values are within normal range.",
-  doctors_narrative: "Your hemoglobin is significantly below normal, indicating iron deficiency anemia. Combined with borderline fasting glucose (118 mg/dL) and elevated LDL cholesterol (148 mg/dL), there are early indicators of metabolic stress. The low Vitamin D (14 ng/mL) may contribute to fatigue and weakened immunity. These markers together suggest a need for dietary improvements and targeted supplementation.",
-  tests: [
-    { test_name: "Hemoglobin", value: 10.2, unit: "g/dL", status: "critical_low", severity: "critical", reference_range: "12.0 – 15.5 g/dL", category: "CBC", explanation: "Hemoglobin carries oxygen in your blood. Your level is significantly below normal, indicating anemia.", gauge_position: 0.25, deviation_pct: -22.0 },
-    { test_name: "TSH", value: 2.1, unit: "uIU/mL", status: "normal", severity: "normal", reference_range: "0.5 – 4.5 uIU/mL", category: "Thyroid", explanation: "Your thyroid-stimulating hormone is normal.", gauge_position: 0.45, deviation_pct: 0 },
-    { test_name: "LDL Cholesterol", value: 148, unit: "mg/dL", status: "high", severity: "mild", reference_range: "< 130 mg/dL", category: "Lipids", explanation: "LDL is slightly elevated. Diet and exercise can help.", gauge_position: 0.68, deviation_pct: 13.8 },
-    { test_name: "Glucose (Fasting)", value: 118, unit: "mg/dL", status: "high", severity: "mild", reference_range: "70 – 100 mg/dL", category: "Metabolic", explanation: "Your fasting glucose is in the prediabetes range. Monitor diet.", gauge_position: 0.72, deviation_pct: 18.0 },
-    { test_name: "Vitamin D", value: 14, unit: "ng/mL", status: "low", severity: "moderate", reference_range: "30 – 100 ng/mL", category: "Vitamins", explanation: "Vitamin D is significantly low. Consider supplementation.", gauge_position: 0.15, deviation_pct: -53.3 },
-    { test_name: "Platelets", value: 210, unit: "×10³/μL", status: "normal", severity: "normal", reference_range: "150 – 400 ×10³/μL", category: "CBC", explanation: "Platelet count is normal.", gauge_position: 0.38, deviation_pct: 0 },
-    { test_name: "Total Cholesterol", value: 195, unit: "mg/dL", status: "normal", severity: "normal", reference_range: "< 200 mg/dL", category: "Lipids", explanation: "Total cholesterol is within acceptable range.", gauge_position: 0.55, deviation_pct: 0 }
-  ],
-  patterns: [
-    { name: "Iron Deficiency Anemia", confidence: 0.82, severity: "moderate", urgency: "moderate", explanation: "Your hemoglobin and related markers suggest iron deficiency anemia. This can cause fatigue, weakness, and pale skin.", symptoms: ["Fatigue", "Pale skin", "Shortness of breath"], doctor_questions: ["Should I start iron supplements?", "Do I need further testing?"], matched_tests: ["Hemoglobin"], icd10: "D50.9", dietary_note: "Include iron-rich foods like spinach, lentils, and fortified cereals." }
-  ],
-  doctor_questions: ["Should I start iron supplements?", "Is my prediabetes risk significant?", "Do I need a Vitamin D supplement?"],
-  path_to_normal: {
-    dietary_swaps: ["Replace red meat with plant-based proteins", "Add leafy greens for iron and folate", "Choose whole grains over refined carbs"],
-    activity_prescription: "30 minutes of moderate walking daily, plus 2 strength training sessions per week."
-  },
-  curated_resources: {
-    youtube: [{ title: "Mayo Clinic: Understanding Iron Deficiency Anemia", url: "https://www.youtube.com/results?search_query=iron+deficiency+anemia+explained" }],
-    articles: [
-      { title: "Managing Iron Through Diet — Harvard Health", url: "https://www.health.harvard.edu/staying-healthy/iron-and-your-health" },
-      { title: "Sunlight & Supplements: A Vitamin D Guide", url: "https://www.healthline.com/nutrition/vitamin-d-101" }
-    ]
-  },
-  recommended_specialists: [
-    { specialty: "Hematologist", emoji: "🩸", reason: "To evaluate low hemoglobin and potential iron deficiency anemia.", maps_query: "Hematologist near me" },
-    { specialty: "Endocrinologist", emoji: "🧬", reason: "To assess borderline glucose levels and metabolic health.", maps_query: "Endocrinologist near me" },
-    { specialty: "Dietitian", emoji: "🥗", reason: "For a personalized meal plan addressing iron, Vitamin D, and cholesterol.", maps_query: "Dietitian nutritionist near me" }
-  ]
-};
+import { apiUrl } from '../../lib/api';
 
 /* ──────────────────────────────────────────── */
 /* LOADING SEQUENCE                             */
@@ -352,7 +315,7 @@ export default function Dashboard() {
       router.push('/auth');
     }
 
-    fetch('http://127.0.0.1:8000/')
+    fetch(apiUrl('/'))
       .then(res => {
         setIsBackendOnline(res.ok);
       })
@@ -364,53 +327,56 @@ export default function Dashboard() {
     router.push('/auth');
   };
 
-  const handleAnalyze = async (file: File | null, age: string, gender: string, language: string, isDemo: boolean) => {
+  const handleAnalyze = async (file: File | null, age: string, gender: string, language: string) => {
     setErrorBanner(null);
+    if (!isBackendOnline) {
+      setErrorBanner('Backend is offline. Start backend service to analyze reports.');
+      return;
+    }
+
+    if (!file) {
+      setErrorBanner('Please upload a PDF report to continue.');
+      return;
+    }
+
     setViewState('loading');
 
-    if (isDemo || !isBackendOnline) {
-      setTimeout(() => {
-        setResults({ ...MOCK_DATA });
-        setViewState('results');
-      }, 10000);
-    } else {
-      const formData = new FormData();
-      if (file) formData.append('file', file);
-      formData.append('age', age);
-      formData.append('gender', gender);
-      formData.append('language', language);
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('age', age);
+    formData.append('gender', gender);
+    formData.append('language', language);
 
-      if (user?.email) formData.append('user_email', user.email);
+    if (user?.email) formData.append('user_email', user.email);
 
-      try {
-        const res = await fetch('http://127.0.0.1:8000/analyze', {
-          method: 'POST',
-          body: formData
-        });
-        if (!res.ok) {
-          const errBody = await res.text();
-          throw new Error(errBody || 'Analysis failed');
-        }
-        const data = await res.json();
-
-        data.all_tests = data.tests || [];
-        data.doctor_questions = data.doctor_questions || [];
-        if (data.doctor_questions.length === 0) {
-          (data.patterns || []).forEach((p: any) => {
-            if (p.doctor_questions) data.doctor_questions.push(...p.doctor_questions);
-          });
-          data.doctor_questions = Array.from(new Set(data.doctor_questions));
-        }
-
-        setTimeout(() => {
-          setResults(data);
-          setViewState('results');
-        }, 100);
-      } catch (err: any) {
-        console.error('Analysis error:', err);
-        setErrorBanner(err.message || 'Failed to analyze the report with backend.');
-        setViewState('upload');
+    try {
+      const res = await fetch(apiUrl('/analyze'), {
+        method: 'POST',
+        body: formData
+      });
+      if (!res.ok) {
+        const errBody = await res.text();
+        throw new Error(errBody || 'Analysis failed');
       }
+      const data = await res.json();
+
+      data.all_tests = data.tests || [];
+      data.doctor_questions = data.doctor_questions || [];
+      if (data.doctor_questions.length === 0) {
+        (data.patterns || []).forEach((p: any) => {
+          if (p.doctor_questions) data.doctor_questions.push(...p.doctor_questions);
+        });
+        data.doctor_questions = Array.from(new Set(data.doctor_questions));
+      }
+
+      setTimeout(() => {
+        setResults(data);
+        setViewState('results');
+      }, 100);
+    } catch (err: any) {
+      console.error('Analysis error:', err);
+      setErrorBanner(err.message || 'Failed to analyze the report with backend.');
+      setViewState('upload');
     }
   };
 
@@ -468,7 +434,7 @@ export default function Dashboard() {
         {!isBackendOnline && (
           <div className="w-full bg-amber-500/20 px-6 py-3 border-b border-amber-500/30 flex justify-center items-center text-amber-200">
             <AlertTriangle className="w-4 h-4 mr-2" />
-            <span className="text-sm font-medium">⚠️ Backend offline — Demo Mode active</span>
+            <span className="text-sm font-medium">⚠️ Backend offline — analysis unavailable</span>
           </div>
         )}
 
@@ -479,12 +445,6 @@ export default function Dashboard() {
               <AlertTriangle className="w-5 h-5 mr-3" />
               <span className="text-sm">{errorBanner}</span>
             </div>
-            <button
-              onClick={() => handleAnalyze(null, '30', 'Male', 'English', true)}
-              className="ml-4 bg-red-500/20 hover:bg-red-500/30 text-red-200 px-4 py-2 rounded-lg text-sm font-semibold transition-colors whitespace-nowrap"
-            >
-              Switch to Demo Mode
-            </button>
           </div>
         )}
 

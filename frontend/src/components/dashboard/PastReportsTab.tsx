@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Calendar, FileText, Download, BarChart2, Loader2, Check, Eye, Trash2, ArrowLeft, TrendingUp, ShieldAlert, HeartPulse } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
+import { apiUrl } from '../../lib/api';
 
 /* ─────────────────────────────────────────── */
 /* TYPES                                       */
@@ -31,7 +32,7 @@ export default function PastReportsTab({ userEmail, onViewReport }: PastReportsT
   useEffect(() => {
     async function fetchReports() {
       try {
-        const res = await fetch(`http://127.0.0.1:8000/reports/${userEmail}`);
+        const res = await fetch(apiUrl(`/reports/${encodeURIComponent(userEmail)}`));
         if (res.ok) {
           const data = await res.json();
           setReports(data.reports || []);
@@ -65,7 +66,7 @@ export default function PastReportsTab({ userEmail, onViewReport }: PastReportsT
     setComparisonResult(null);
 
     try {
-      const res = await fetch('http://127.0.0.1:8000/compare', {
+      const res = await fetch(apiUrl('/compare'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ report1_id: r1.id, report2_id: r2.id })
@@ -84,7 +85,7 @@ export default function PastReportsTab({ userEmail, onViewReport }: PastReportsT
   const handleDownloadReportPdf = async (report: any) => {
     setDownloadingId(report.id);
     try {
-      const res = await fetch('http://127.0.0.1:8000/export/pdf', {
+      const res = await fetch(apiUrl('/export/pdf'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -116,7 +117,7 @@ export default function PastReportsTab({ userEmail, onViewReport }: PastReportsT
     if (!compareData || !comparisonResult) return;
     setComparePdfLoading(true);
     try {
-      const res = await fetch('http://127.0.0.1:8000/export/comparison-pdf', {
+      const res = await fetch(apiUrl('/export/comparison-pdf'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
