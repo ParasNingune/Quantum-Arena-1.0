@@ -6,6 +6,9 @@ from dataclasses import dataclass, field
 from loguru import logger
 from google import genai
 from google.genai import types
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 @dataclass
@@ -19,7 +22,9 @@ class ExtractionResult:
 class DocumentExtractor:
     def __init__(self):
         self.api_key = os.environ.get("GEMINI_API_KEY", "")
-        self.ocr_model = os.environ.get("GEMINI_OCR_MODEL", "gemini-3.1-flash-lite-preview")
+        self.ocr_model = os.environ.get("GEMINI_OCR_MODEL", "").strip()
+        if not self.ocr_model:
+            raise RuntimeError("GEMINI_OCR_MODEL is not set in environment")
         self.client = genai.Client(api_key=self.api_key) if self.api_key else None
 
     def _extract_pdf_text(self, data: bytes) -> ExtractionResult:

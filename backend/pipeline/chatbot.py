@@ -3,6 +3,9 @@ from google.genai import types
 import os
 import json
 from loguru import logger
+from dotenv import load_dotenv
+
+load_dotenv()
 
 CHAT_SYSTEM_PROMPT = """You are a friendly, warm, and helpful Medical Assistant.
 You are helping a patient understand their recent blood test results.
@@ -20,7 +23,9 @@ class ChatManager:
     def __init__(self):
         self.api_key = os.environ.get("GEMINI_API_KEY", "")
         self.client = genai.Client(api_key=self.api_key) if self.api_key else None
-        self.model = os.environ.get("GEMINI_CHAT_MODEL", "gemini-3.1-flash-lite-preview")
+        self.model = os.environ.get("GEMINI_CHAT_MODEL", "").strip()
+        if not self.model:
+            raise RuntimeError("GEMINI_CHAT_MODEL is not set in environment")
         self.max_context_chars = int(os.environ.get("CHAT_CONTEXT_MAX_CHARS", "8000"))
         if self.client: logger.info("Gemini 3 Chat Engine Ready.")
 

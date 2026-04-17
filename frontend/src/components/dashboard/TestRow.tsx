@@ -47,7 +47,7 @@ export default function TestRow({ test }: { test: any }) {
           <span className={`px-2 py-1 rounded-md text-xs font-semibold capitalize ${getStatusStyles(test.status)}`}>
             {test.status.replace('_', ' ')}
           </span>
-          <ChevronDown className={`w-5 h-5 text-white/50 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+          <ChevronDown className="w-5 h-5 text-white/50" />
         </div>
       </div>
       <AnimatePresence>

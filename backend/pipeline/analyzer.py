@@ -80,7 +80,9 @@ class MedicalAnalyzer:
   def __init__(self):
     self.api_key = os.environ.get("GEMINI_API_KEY", "")
     self.client = genai.Client(api_key=self.api_key) if self.api_key else None
-    self.model = os.environ.get("GEMINI_ANALYZER_MODEL", "gemini-3.1-flash-lite-preview")
+    self.model = os.environ.get("GEMINI_ANALYZER_MODEL", "").strip()
+    if not self.model:
+      raise RuntimeError("GEMINI_ANALYZER_MODEL is not set in environment")
     self.max_report_chars = int(os.environ.get("ANALYZER_MAX_REPORT_CHARS", "20000"))
     if self.client:
       logger.info("Gemini 3 Medical Engine Ready.")

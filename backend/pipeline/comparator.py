@@ -3,6 +3,9 @@ import json
 from loguru import logger
 from google import genai
 from google.genai import types
+from dotenv import load_dotenv
+
+load_dotenv()
 
 def get_comparator():
     api_key = os.getenv("GEMINI_API_KEY")
@@ -13,7 +16,9 @@ def get_comparator():
 class Comparator:
     def __init__(self, api_key: str):
         self.client = genai.Client(api_key=api_key)
-        self.model = os.getenv("GEMINI_COMPARATOR_MODEL", "gemini-3.1-flash-lite-preview")
+        self.model = os.getenv("GEMINI_COMPARATOR_MODEL", "").strip()
+        if not self.model:
+            raise RuntimeError("GEMINI_COMPARATOR_MODEL is not set in environment")
         self.system_prompt = """
 You are a highly analytical Medical AI. The user has provided two medical test reports from different dates.
 Your job is to compare the older report with the newer report.

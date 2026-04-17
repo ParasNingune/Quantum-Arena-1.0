@@ -102,6 +102,7 @@ export default function UploadPanel({ onAnalyze }: { onAnalyze: (file: File | nu
   const [age, setAge] = useState('');
   const [gender, setGender] = useState('');
   const [language, setLanguage] = useState('English');
+  const [formError, setFormError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const mouse = useRef({ x: 0, y: 0 });
@@ -113,17 +114,46 @@ export default function UploadPanel({ onAnalyze }: { onAnalyze: (file: File | nu
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      setFile(e.dataTransfer.files[0]);
+      const droppedFile = e.dataTransfer.files[0];
+      const isSupported = ['application/pdf', 'image/png', 'image/jpeg'].includes(droppedFile.type);
+      const isWithinLimit = droppedFile.size <= 20 * 1024 * 1024;
+      if (!isSupported) {
+        setFormError('Unsupported file type. Please upload PDF, PNG, JPG, or JPEG.');
+        return;
+      }
+      if (!isWithinLimit) {
+        setFormError('File is too large. Maximum allowed size is 20MB.');
+        return;
+      }
+      setFormError(null);
+      setFile(droppedFile);
     }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      setFile(e.target.files[0]);
+      const selectedFile = e.target.files[0];
+      const isSupported = ['application/pdf', 'image/png', 'image/jpeg'].includes(selectedFile.type);
+      const isWithinLimit = selectedFile.size <= 20 * 1024 * 1024;
+      if (!isSupported) {
+        setFormError('Unsupported file type. Please upload PDF, PNG, JPG, or JPEG.');
+        return;
+      }
+      if (!isWithinLimit) {
+        setFormError('File is too large. Maximum allowed size is 20MB.');
+        return;
+      }
+      setFormError(null);
+      setFile(selectedFile);
     }
   };
 
   const isSubmitDisabled = !file || !age || !gender;
+  const missingFields = [
+    !file ? 'report file' : null,
+    !age ? 'age' : null,
+    !gender ? 'biological sex' : null,
+  ].filter(Boolean) as string[];
 
   /* Track mouse position for the fluid canvas */
   const handleContainerMouseMove = useCallback((e: React.MouseEvent) => {
@@ -166,7 +196,7 @@ export default function UploadPanel({ onAnalyze }: { onAnalyze: (file: File | nu
             <span className="text-xs text-white/50 font-medium">AI Analysis Ready</span>
           </div>
           <h2 className="text-2xl font-semibold text-white tracking-tight">Upload Your Report</h2>
-          <p className="text-sm text-white/40 mt-1">Powered by medical-grade AI</p>
+          <p className="text-sm text-white/40 mt-1">Get a clear, easy-to-understand explanation in your selected language</p>
         </div>
 
         {/* — Drag Zone — */}
@@ -178,7 +208,7 @@ export default function UploadPanel({ onAnalyze }: { onAnalyze: (file: File | nu
         >
           <UploadCloud className="w-10 h-10 text-white/25 mx-auto" />
           <p className="text-white/60 font-medium mt-4">Drop your blood report here</p>
-          <p className="text-white/25 text-xs mt-1">PDF, JPG, or PNG · Max 20MB</p>
+          <p className="text-white/25 text-xs mt-1">PDF, JPG, JPEG, or PNG · Max 20MB</p>
           <input
             type="file"
             ref={fileInputRef}
@@ -244,8 +274,18 @@ export default function UploadPanel({ onAnalyze }: { onAnalyze: (file: File | nu
               </select>
               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" />
             </div>
+            <p className="text-[11px] text-white/35 mt-1.5">Report explanations and recommendations will be generated in {language}.</p>
           </div>
         </div>
+
+        {(formError || missingFields.length > 0) && (
+          <div className="relative z-10 mb-5 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
+            {formError && <p className="text-xs text-red-300">{formError}</p>}
+            {!formError && missingFields.length > 0 && (
+              <p className="text-xs text-white/45">Please add: {missingFields.join(', ')}.</p>
+            )}
+          </div>
+        )}
 
         {/* — CTA — */}
         <button

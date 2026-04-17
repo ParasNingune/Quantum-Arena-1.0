@@ -610,7 +610,7 @@ export default function App() {
       const downloadUrl = URLObj.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = downloadUrl;
-      a.download = `MediSense_${patient.name || 'Patient'}_Report.pdf`;
+      a.download = `ClariMed_${patient.name || 'Patient'}_Report.pdf`;
       document.body.appendChild(a);
       a.click();
       a.remove();

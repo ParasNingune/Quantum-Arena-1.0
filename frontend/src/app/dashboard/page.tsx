@@ -94,7 +94,7 @@ function ResultsView({ results, onReset, user, onLogout, onViewReport }: { resul
       <nav
         className="w-full px-6 py-4 flex justify-between items-center sticky top-0 z-50"
         style={{
-          background: 'rgba(248, 249, 250, 0.88)',
+          background: 'var(--zen-nav-bg, rgba(248, 249, 250, 0.88))',
           backdropFilter: 'blur(12px)',
           WebkitBackdropFilter: 'blur(12px)',
           borderBottom: '1px solid var(--zen-border)',
@@ -157,6 +157,15 @@ function ResultsView({ results, onReset, user, onLogout, onViewReport }: { resul
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.3 }}
             >
+              <section className="mb-8">
+                <div className="zen-glass-solid p-5" style={{ borderRadius: '16px' }}>
+                  <h3 className="font-semibold text-sm mb-1" style={{ color: 'var(--zen-text)' }}>How to read this report</h3>
+                  <p className="text-xs leading-relaxed" style={{ color: 'var(--zen-text-muted)' }}>
+                    Start with your Health Score, then review any biomarker marked as "slightly off" or "needs attention". Use Action Plan for practical next steps and Questions for Your Doctor for your appointment.
+                  </p>
+                </div>
+              </section>
+
               <section className="mb-12">
                 <HealthScoreGauge data={{ ...results, all_tests: allTests }} />
               </section>
@@ -355,8 +364,17 @@ export default function Dashboard() {
         body: formData
       });
       if (!res.ok) {
-        const errBody = await res.text();
-        throw new Error(errBody || 'Analysis failed');
+        let friendlyMessage = 'Analysis failed. Please try again.';
+        try {
+          const errJson = await res.json();
+          if (errJson?.detail) {
+            friendlyMessage = errJson.detail;
+          }
+        } catch {
+          const errBody = await res.text();
+          if (errBody?.trim()) friendlyMessage = errBody;
+        }
+        throw new Error(friendlyMessage);
       }
       const data = await res.json();
 
@@ -411,7 +429,7 @@ export default function Dashboard() {
         {/* NAVBAR (preserved dark) */}
         <nav className="w-full border-b border-white/10 px-6 py-4 flex justify-between items-center bg-[#050B18]/80 backdrop-blur-md sticky top-0 z-50">
           <Link href="/" className="font-bold text-xl tracking-tight text-white/90 hover:text-white transition-colors">
-            MedReport AI
+            ClariMed
           </Link>
           <div className="flex items-center space-x-4">
             <div className="flex flex-col items-end">

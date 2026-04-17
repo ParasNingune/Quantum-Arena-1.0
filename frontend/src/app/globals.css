@@ -97,7 +97,8 @@ body {
    ────────────────────────────────────────────── */
 
 .zen-results {
-  background: var(--zen-bg);
+  --zen-nav-bg: rgba(248, 249, 250, 0.88);
+  background: var(--zen-bg, #F8F9FA);
   color: var(--zen-text);
   min-height: 100vh;
 }
@@ -178,7 +179,7 @@ body {
   position: sticky;
   top: 64px;
   z-index: 40;
-  background: rgba(248, 249, 250, 0.85);
+  background: var(--zen-nav-bg, rgba(248, 249, 250, 0.85));
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--zen-border);
