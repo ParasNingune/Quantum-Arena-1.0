@@ -11,6 +11,7 @@ import TrendRibbon from '../../components/dashboard/TrendRibbon';
 import AIInsightCards from '../../components/dashboard/AIInsightCards';
 import DrNearby from '../../components/dashboard/DrNearby';
 import SmartArticles from '../../components/dashboard/SmartArticles';
+import GovPolicies from '../../components/dashboard/GovPolicies';
 import DownloadPDF from '../../components/dashboard/DownloadPDF';
 import PathToNormal from '../../components/dashboard/PathToNormal';
 import UploadPanel from '../../components/dashboard/UploadPanel';
@@ -83,6 +84,10 @@ const TABS = [
 function ResultsView({ results, onReset, user, onLogout, onViewReport }: { results: any; onReset: () => void; user: { name: string; email: string }; onLogout: () => void; onViewReport?: (r: any) => void }) {
   const allTests = results.all_tests || results.tests || [];
   const doctorQuestions = results.doctor_questions || [];
+  const patterns = results.patterns || [];
+  const predictedCondition = patterns.length
+    ? [...patterns].sort((a: any, b: any) => (b?.confidence || 0) - (a?.confidence || 0))[0]
+    : null;
   const [showAllQuestions, setShowAllQuestions] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const displayedQuestions = showAllQuestions ? doctorQuestions : doctorQuestions.slice(0, 3);
@@ -185,6 +190,34 @@ function ResultsView({ results, onReset, user, onLogout, onViewReport }: { resul
                 </div>
               </section>
 
+              <section className="mb-8">
+                <div className="zen-glass-solid p-5" style={{ borderRadius: '16px' }}>
+                  <div className="flex items-center justify-between gap-3 mb-2">
+                    <h3 className="font-semibold text-sm" style={{ color: 'var(--zen-text)' }}>AI Predicted Condition</h3>
+                    {predictedCondition && (
+                      <span className="zen-pill zen-pill-brand" style={{ fontSize: '0.68rem', padding: '3px 10px' }}>
+                        {Math.round((predictedCondition.confidence || 0) * 100)}% confidence
+                      </span>
+                    )}
+                  </div>
+
+                  {predictedCondition ? (
+                    <>
+                      <p className="text-base font-semibold mb-1" style={{ color: 'var(--zen-text)' }}>
+                        {predictedCondition.name}
+                      </p>
+                      <p className="text-xs leading-relaxed" style={{ color: 'var(--zen-text-muted)' }}>
+                        {predictedCondition.explanation || 'Detected from the biomarker relationships in your report.'}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-xs leading-relaxed" style={{ color: 'var(--zen-text-muted)' }}>
+                      No strong condition pattern was predicted from this report.
+                    </p>
+                  )}
+                </div>
+              </section>
+
               <section className="mb-12">
                 <HealthScoreGauge data={{ ...results, all_tests: allTests }} />
               </section>
@@ -279,6 +312,10 @@ function ResultsView({ results, onReset, user, onLogout, onViewReport }: { resul
               <section className="mb-12">
                 <SmartArticles resources={results.curated_resources} />
               </section>
+
+              <section className="mb-12">
+                <GovPolicies analysisData={results} />
+              </section>
             </motion.div>
           )}
 
@@ -325,6 +362,11 @@ export default function Dashboard() {
   const [viewState, setViewState] = useState<'upload' | 'loading' | 'results'>('upload');
   const [results, setResults] = useState<any>(null);
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
+  const [showReminderPrompt, setShowReminderPrompt] = useState(false);
+  const [reminderDays, setReminderDays] = useState('30');
+  const [reminderStep, setReminderStep] = useState<'ask' | 'days'>('ask');
+  const [reminderSaving, setReminderSaving] = useState(false);
+  const [reminderMessage, setReminderMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem('medreport_user');
@@ -407,6 +449,14 @@ export default function Dashboard() {
       setTimeout(() => {
         setResults(data);
         setViewState('results');
+
+        const score = Number(data?.health_score ?? 0);
+        if (score < 45) {
+          setReminderStep('ask');
+          setReminderDays('30');
+          setReminderMessage(null);
+          setShowReminderPrompt(true);
+        }
       }, 100);
     } catch (err: any) {
       console.error('Analysis error:', err);
@@ -418,6 +468,49 @@ export default function Dashboard() {
   const handleReset = () => {
     setResults(null);
     setViewState('upload');
+    setShowReminderPrompt(false);
+    setReminderMessage(null);
+  };
+
+  const handleSaveReminder = async () => {
+    if (!user?.email || !results) return;
+
+    const days = Number(reminderDays);
+    if (!Number.isInteger(days) || days <= 0) {
+      setReminderMessage('Please enter a valid number of days greater than 0.');
+      return;
+    }
+
+    try {
+      setReminderSaving(true);
+      setReminderMessage(null);
+      const res = await fetch(apiUrl('/reminders'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_email: user.email,
+          remind_in_days: days,
+          report_id: results?.id,
+          health_score: results?.health_score,
+        }),
+      });
+
+      if (!res.ok) {
+        let message = 'Failed to save reminder. Please try again.';
+        try {
+          const err = await res.json();
+          if (err?.detail) message = err.detail;
+        } catch {}
+        throw new Error(message);
+      }
+
+      setReminderMessage(`Reminder scheduled in ${days} days.`);
+      setTimeout(() => setShowReminderPrompt(false), 1200);
+    } catch (e: any) {
+      setReminderMessage(e?.message || 'Failed to save reminder.');
+    } finally {
+      setReminderSaving(false);
+    }
   };
 
   if (!user) return <div className="min-h-screen bg-black" />;
@@ -510,6 +603,67 @@ export default function Dashboard() {
             )}
           </AnimatePresence>
         </main>
+
+        {showReminderPrompt && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 px-4">
+            <div className="w-full max-w-md rounded-2xl border border-white/20 bg-[#0B1222] p-6 shadow-2xl">
+              <h3 className="text-lg font-semibold text-white mb-2">Low Health Score Alert</h3>
+              {reminderStep === 'ask' ? (
+                <>
+                  <p className="text-sm text-white/70 mb-5">
+                    Your health score is below 45. Do you want a reminder notification for your next test?
+                  </p>
+                  <div className="flex justify-end gap-3">
+                    <button
+                      onClick={() => setShowReminderPrompt(false)}
+                      className="px-4 py-2 rounded-lg border border-white/20 text-white/80 hover:bg-white/10 transition-colors"
+                    >
+                      No
+                    </button>
+                    <button
+                      onClick={() => setReminderStep('days')}
+                      className="px-4 py-2 rounded-lg bg-emerald-500 text-white hover:bg-emerald-400 transition-colors"
+                    >
+                      Yes
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-white/70 mb-3">After how many days should we remind you?</p>
+                  <input
+                    type="number"
+                    min={1}
+                    value={reminderDays}
+                    onChange={(e) => setReminderDays(e.target.value)}
+                    className="w-full bg-white/[0.05] border border-white/20 rounded-lg px-3 py-2 text-white outline-none focus:border-white/40"
+                  />
+                  {reminderMessage && (
+                    <p className="text-xs mt-3" style={{ color: reminderMessage.includes('scheduled') ? '#34D399' : '#FCA5A5' }}>
+                      {reminderMessage}
+                    </p>
+                  )}
+                  <div className="flex justify-end gap-3 mt-5">
+                    <button
+                      onClick={() => setReminderStep('ask')}
+                      className="px-4 py-2 rounded-lg border border-white/20 text-white/80 hover:bg-white/10 transition-colors"
+                      disabled={reminderSaving}
+                    >
+                      Back
+                    </button>
+                    <button
+                      onClick={handleSaveReminder}
+                      className="px-4 py-2 rounded-lg bg-emerald-500 text-white hover:bg-emerald-400 transition-colors disabled:opacity-50"
+                      disabled={reminderSaving}
+                    >
+                      {reminderSaving ? 'Saving...' : 'Save Reminder'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

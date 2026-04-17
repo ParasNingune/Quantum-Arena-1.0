@@ -12,7 +12,7 @@ from pipeline.comparator import get_comparator
 from pipeline.ocr import get_extractor
 from pipeline.pdf_report import generate_pdf
 from pipeline.comparison_pdf import generate_comparison_pdf
-from database import save_report, get_reports_by_user, get_report_by_id
+from database import save_report, get_reports_by_user, get_report_by_id, save_test_reminder
 from loguru import logger
 from dotenv import load_dotenv
 
@@ -97,6 +97,13 @@ class ChatRequest(BaseModel):
 class CompareRequest(BaseModel):
     report1_id: str
     report2_id: str
+
+
+class ReminderRequest(BaseModel):
+    user_email: str
+    remind_in_days: int
+    report_id: Optional[str] = None
+    health_score: Optional[int] = None
 
 @app.get("/")
 def home():
@@ -205,6 +212,29 @@ async def chat_interaction(req: ChatRequest):
         raise e
     except Exception as e:
         logger.error(f"Chat API Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/reminders")
+async def create_reminder(req: ReminderRequest):
+    try:
+        user_email = (req.user_email or "").strip().lower()
+        if not user_email:
+            raise HTTPException(status_code=400, detail="user_email is required")
+        if req.remind_in_days <= 0:
+            raise HTTPException(status_code=400, detail="remind_in_days must be greater than 0")
+
+        reminder = save_test_reminder(
+            user_email=user_email,
+            remind_in_days=req.remind_in_days,
+            report_id=req.report_id,
+            health_score=req.health_score,
+        )
+        return {"reminder": reminder}
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        logger.error(f"Reminder API Error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 class ExportPDFRequest(BaseModel):

@@ -2,7 +2,7 @@ import os
 import uuid
 import copy
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import List, Dict, Any, Optional
 
 from dotenv import load_dotenv
@@ -13,6 +13,7 @@ load_dotenv()
 
 _CLIENT: Optional[MongoClient] = None
 _COLLECTION: Optional[Collection] = None
+_REMINDERS_COLLECTION: Optional[Collection] = None
 
 
 def _coerce_int(value: Optional[str], default: int) -> int:
@@ -70,6 +71,21 @@ def _get_collection() -> Collection:
     _COLLECTION.create_index([("user_email", DESCENDING), ("created_at", DESCENDING)])
     _COLLECTION.create_index([("created_at", DESCENDING)])
     return _COLLECTION
+
+
+def _get_reminders_collection() -> Collection:
+    global _REMINDERS_COLLECTION
+    if _REMINDERS_COLLECTION is not None:
+        return _REMINDERS_COLLECTION
+
+    _ = _get_collection()
+    db_name = os.getenv("MONGODB_DB_NAME", "medisense")
+    reminders_collection_name = os.getenv("MONGODB_REMINDERS_COLLECTION", "reminders")
+
+    _REMINDERS_COLLECTION = _CLIENT[db_name][reminders_collection_name]
+    _REMINDERS_COLLECTION.create_index([("user_email", DESCENDING), ("due_at", DESCENDING)])
+    _REMINDERS_COLLECTION.create_index([("due_at", DESCENDING)])
+    return _REMINDERS_COLLECTION
 
 
 def save_report(user_email: str, analysis_data: Dict[str, Any]) -> str:
@@ -134,3 +150,41 @@ def get_report_by_id(report_id: str) -> Optional[Dict[str, Any]]:
     created_at = row.get("created_at")
     data["created_at"] = created_at.isoformat() if hasattr(created_at, "isoformat") else str(created_at)
     return data
+
+
+def save_test_reminder(
+    user_email: str,
+    remind_in_days: int,
+    report_id: Optional[str] = None,
+    health_score: Optional[int] = None,
+) -> Dict[str, Any]:
+    days = max(1, int(remind_in_days))
+    reminder_id = str(uuid.uuid4())
+    created_at = datetime.now(timezone.utc)
+    due_at = created_at + timedelta(days=days)
+
+    doc = {
+        "_id": reminder_id,
+        "user_email": user_email,
+        "report_id": report_id,
+        "health_score": health_score,
+        "remind_in_days": days,
+        "created_at": created_at,
+        "due_at": due_at,
+        "status": "scheduled",
+        "channel": "in_app",
+    }
+
+    collection = _get_reminders_collection()
+    collection.insert_one(doc)
+
+    return {
+        "id": reminder_id,
+        "user_email": user_email,
+        "report_id": report_id,
+        "health_score": health_score,
+        "remind_in_days": days,
+        "created_at": created_at.isoformat(),
+        "due_at": due_at.isoformat(),
+        "status": "scheduled",
+    }

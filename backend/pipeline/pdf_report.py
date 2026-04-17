@@ -12,6 +12,7 @@ Install:
 
 from __future__ import annotations
 import io
+import os
 from datetime import datetime
 from typing import Optional
 
@@ -27,6 +28,76 @@ from reportlab.platypus import (
 from reportlab.platypus.flowables import Flowable
 from reportlab.graphics.shapes import Drawing, Rect, String, Circle
 from reportlab.graphics import renderPDF
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+
+_PDF_FONT_REGULAR = "Helvetica"
+_PDF_FONT_BOLD = "Helvetica-Bold"
+_PDF_FONT_ITALIC = "Helvetica-Oblique"
+_PDF_FONT_MONO = "Courier"
+_PDF_FONT_MONO_BOLD = "Courier-Bold"
+
+
+def _register_unicode_font(language_hint: str = "") -> None:
+    global _PDF_FONT_REGULAR, _PDF_FONT_BOLD, _PDF_FONT_ITALIC, _PDF_FONT_MONO, _PDF_FONT_MONO_BOLD
+
+    candidates = [
+        "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
+        "/Library/Fonts/Arial Unicode.ttf",
+        "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    ]
+
+    for path in candidates:
+        if not os.path.exists(path):
+            continue
+        try:
+            font_name = "MediSenseUnicode"
+            if font_name not in pdfmetrics.getRegisteredFontNames():
+                pdfmetrics.registerFont(TTFont(font_name, path))
+
+            _PDF_FONT_REGULAR = font_name
+            _PDF_FONT_BOLD = font_name
+            _PDF_FONT_ITALIC = font_name
+            _PDF_FONT_MONO = font_name
+            _PDF_FONT_MONO_BOLD = font_name
+            return
+        except Exception:
+            continue
+
+
+def _walk_flowables(items):
+    for item in items:
+        yield item
+
+        if isinstance(item, KeepTogether):
+            nested = getattr(item, "_content", None) or getattr(item, "_flowables", None) or []
+            for child in _walk_flowables(nested):
+                yield child
+
+        if isinstance(item, Table):
+            for row in getattr(item, "_cellvalues", []) or []:
+                for cell in row:
+                    if isinstance(cell, list):
+                        for child in _walk_flowables(cell):
+                            yield child
+                    elif isinstance(cell, Flowable):
+                        for child in _walk_flowables([cell]):
+                            yield child
+
+
+def _apply_unicode_font_overrides(story):
+    for flowable in _walk_flowables(story):
+        if isinstance(flowable, Paragraph):
+            current = getattr(flowable.style, "fontName", "")
+            flowable.style.fontName = _PDF_FONT_BOLD if "Bold" in current else _PDF_FONT_REGULAR
+        elif isinstance(flowable, Table):
+            rows = getattr(flowable, "_nrows", 0)
+            if rows > 0:
+                flowable.setStyle(TableStyle([
+                    ("FONTNAME", (0, 0), (-1, -1), _PDF_FONT_REGULAR),
+                    ("FONTNAME", (0, 0), (-1, 0), _PDF_FONT_BOLD),
+                ]))
 
 # ─────────────────────────────────────────────────────────────
 # Brand colours
@@ -201,13 +272,13 @@ def _score_dial_drawing(score: int, grade: str, color) -> Drawing:
     # Score number
     d.add(String(cx, cy + 4, str(score),
                  fontSize=26, fillColor=color,
-                 textAnchor="middle", fontName="Helvetica-Bold"))
+                 textAnchor="middle", fontName=_PDF_FONT_BOLD))
     d.add(String(cx, cy - 14, "/100",
                  fontSize=9, fillColor=C_GREY,
-                 textAnchor="middle", fontName="Helvetica"))
+                 textAnchor="middle", fontName=_PDF_FONT_REGULAR))
     d.add(String(cx, cy - 28, grade,
                  fontSize=8, fillColor=color,
-                 textAnchor="middle", fontName="Helvetica-Bold"))
+                 textAnchor="middle", fontName=_PDF_FONT_BOLD))
     return d
 
 def _bar_gauge_drawing(pos: float, status: str) -> Drawing:
@@ -222,8 +293,8 @@ def _bar_gauge_drawing(pos: float, status: str) -> Drawing:
     d.add(Rect(width * 0.35, 4, width * 0.30, height, fillColor=C_GREEN_BG, strokeColor=None))
     
     # Text labels
-    d.add(String(0, 14, "L", fontSize=5, fillColor=colors.HexColor("#9CA3AF"), fontName="Helvetica-Bold"))
-    d.add(String(width-4, 14, "H", fontSize=5, fillColor=colors.HexColor("#9CA3AF"), fontName="Helvetica-Bold"))
+    d.add(String(0, 14, "L", fontSize=5, fillColor=colors.HexColor("#9CA3AF"), fontName=_PDF_FONT_BOLD))
+    d.add(String(width-4, 14, "H", fontSize=5, fillColor=colors.HexColor("#9CA3AF"), fontName=_PDF_FONT_BOLD))
     
     # Marker
     try:
@@ -248,42 +319,42 @@ def _styles():
 
     return {
         "title":       S("title",   fontSize=22, textColor=C_WHITE,
-                          fontName="Helvetica-Bold", leading=28, alignment=TA_CENTER),
+                          fontName=_PDF_FONT_BOLD, leading=28, alignment=TA_CENTER),
         "subtitle":    S("subtitle",fontSize=11, textColor=colors.HexColor("#CBD5E1"),
-                          fontName="Helvetica", alignment=TA_CENTER),
+                          fontName=_PDF_FONT_REGULAR, alignment=TA_CENTER),
         "h1":          S("h1",      fontSize=14, textColor=C_NAVY,
-                          fontName="Helvetica-Bold", spaceBefore=14, spaceAfter=6),
+                          fontName=_PDF_FONT_BOLD, spaceBefore=14, spaceAfter=6),
         "h2":          S("h2",      fontSize=11, textColor=C_NAVY,
-                          fontName="Helvetica-Bold", spaceBefore=10, spaceAfter=4),
+                          fontName=_PDF_FONT_BOLD, spaceBefore=10, spaceAfter=4),
         "body":        S("body",    fontSize=9,  textColor=colors.HexColor("#374151"),
-                          fontName="Helvetica",  leading=14),
+                          fontName=_PDF_FONT_REGULAR,  leading=14),
         "body_bold":   S("body_bold",fontSize=9, textColor=C_NAVY,
-                          fontName="Helvetica-Bold", leading=14),
+                          fontName=_PDF_FONT_BOLD, leading=14),
         "small":       S("small",   fontSize=8,  textColor=C_GREY,
-                          fontName="Helvetica",  leading=11),
+                          fontName=_PDF_FONT_REGULAR,  leading=11),
         "cell":        S("cell",    fontSize=8,  textColor=colors.HexColor("#1F2937"),
-                          fontName="Helvetica",  leading=11),
+                          fontName=_PDF_FONT_REGULAR,  leading=11),
         "cell_bold":   S("cell_bold",fontSize=8, textColor=C_NAVY,
-                          fontName="Helvetica-Bold", leading=11),
+                          fontName=_PDF_FONT_BOLD, leading=11),
         "cell_center": S("cell_center",fontSize=8, textColor=colors.HexColor("#1F2937"),
-                          fontName="Helvetica", leading=11, alignment=TA_CENTER),
+                          fontName=_PDF_FONT_REGULAR, leading=11, alignment=TA_CENTER),
         "cell_right":  S("cell_right",fontSize=8, textColor=colors.HexColor("#1F2937"),
-                          fontName="Courier", leading=11, alignment=TA_RIGHT),
+                          fontName=_PDF_FONT_MONO, leading=11, alignment=TA_RIGHT),
         "cell_right_bold":S("cell_right_bold",fontSize=8, textColor=C_NAVY,
-                          fontName="Courier-Bold", leading=11, alignment=TA_RIGHT),
-        "gauge":       S("gauge",fontSize=8, textColor=C_NAVY, fontName="Courier-Bold", leading=11, alignment=TA_CENTER),
+                          fontName=_PDF_FONT_MONO_BOLD, leading=11, alignment=TA_RIGHT),
+        "gauge":       S("gauge",fontSize=8, textColor=C_NAVY, fontName=_PDF_FONT_MONO_BOLD, leading=11, alignment=TA_CENTER),
         "link":        S("link",    fontSize=8,  textColor=C_BLUE,
-                          fontName="Helvetica",  leading=13),
+                          fontName=_PDF_FONT_REGULAR,  leading=13),
         "disclaimer":  S("disclaimer",fontSize=7,textColor=C_GREY,
-                          fontName="Helvetica-Oblique", leading=10, alignment=TA_CENTER),
+                          fontName=_PDF_FONT_ITALIC, leading=10, alignment=TA_CENTER),
         "summary_box": S("summary_box",fontSize=9,textColor=colors.HexColor("#1E40AF"),
-                          fontName="Helvetica", leading=14),
+                          fontName=_PDF_FONT_REGULAR, leading=14),
         "pattern_name":S("pattern_name",fontSize=9,textColor=C_NAVY,
-                          fontName="Helvetica-Bold", leading=13),
+                          fontName=_PDF_FONT_BOLD, leading=13),
         "pattern_body":S("pattern_body",fontSize=8,textColor=colors.HexColor("#374151"),
-                          fontName="Helvetica", leading=12),
-        "specialist_name": S("spec_name", fontSize=10, textColor=C_NAVY, fontName="Helvetica-Bold", leading=14),
-        "spec_reason": S("spec_reason", fontSize=8.5, textColor=colors.HexColor("#4B5563"), fontName="Helvetica", leading=12),
+                          fontName=_PDF_FONT_REGULAR, leading=12),
+        "specialist_name": S("spec_name", fontSize=10, textColor=C_NAVY, fontName=_PDF_FONT_BOLD, leading=14),
+        "spec_reason": S("spec_reason", fontSize=8.5, textColor=colors.HexColor("#4B5563"), fontName=_PDF_FONT_REGULAR, leading=12),
     }
 
 # ─────────────────────────────────────────────────────────────
@@ -310,6 +381,9 @@ def generate_pdf(
     Returns:
         PDF as bytes — write to file or return in HTTP response.
     """
+    report_language = str(analysis.get("report_language", ""))
+    _register_unicode_font(report_language)
+
     buf = io.BytesIO()
     doc = SimpleDocTemplate(
         buf,
@@ -968,6 +1042,7 @@ def generate_pdf(
         S["disclaimer"]
     ))
 
+    _apply_unicode_font_overrides(story)
     doc.build(story)
     return buf.getvalue()
 
