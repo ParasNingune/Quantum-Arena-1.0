@@ -16,6 +16,9 @@ Return ONLY a valid JSON object. Do not include markdown formatting like ```json
 
 ANALYSIS_PROMPT = """Analyze this lab report for a {age} year old {gender_full} patient.
 
+Optional patient context for personalization:
+{patient_context_block}
+
 Output language requirement:
 
 Write ALL user-facing content in {language}.
@@ -57,7 +60,7 @@ JSON Structure Requirements:
 "value": "Value",
 "unit": "Clean string representation of unit (e.g., mg/dL, 10^9/L, mmol/L)",
 "status": "normal/high/low/critical_high/critical_low",
-"reference_range": "Normal range",
+"reference_range": "Normal range (MUST be a medically meaningful range string, never '0.00' or empty unless explicitly present in source report)",
 "deviation_pct": 0.0,
 
   "explanation": "Jargon-checked explanation. Explain complex terms with analogies (e.g., 'Think of eGFR as the speed limit').",
@@ -137,6 +140,26 @@ JSON Structure Requirements:
 }}
 
 REPORT: {report_text}"""
+
+REFERENCE_RANGE_BACKFILL_PROMPT = """You are a clinical lab standards assistant.
+
+Given patient profile and extracted tests, fill medically appropriate reference ranges.
+
+Rules:
+- Return ONLY valid JSON object in this shape:
+  {"tests": [{"test_name": "...", "reference_range": "..."}]}
+- Keep test_name exactly as input.
+- reference_range must be a clear string with units when possible.
+- Do not return empty, '-', 'N/A', or '0.00' unless source explicitly indicates that exact reference.
+- If exact source range is unavailable, provide standard adult clinical reference range appropriate for age/gender context.
+
+Patient:
+- Age: {age}
+- Sex: {gender_full}
+
+Tests needing reference ranges:
+{tests_json}
+"""
 
 TRANSLATION_PROMPT = """Translate this medical analysis JSON to {language}.
 
@@ -265,7 +288,98 @@ class MedicalAnalyzer:
     translated = json.loads(response.text)
     return translated[0] if isinstance(translated, list) else translated
 
-  def analyze(self, report_text: str, age: int, gender: str, language: str = "English") -> dict:
+  def _is_placeholder_reference_range(self, value: str) -> bool:
+    raw = str(value or "").strip().lower()
+    placeholders = {
+      "", "-", "—", "na", "n/a", "none", "null",
+      "0", "0.0", "0.00", "0-0", "0 to 0", "not provided",
+    }
+    return raw in placeholders
+
+  def _backfill_reference_ranges_with_gemini(self, tests: list, age: int, gender: str) -> list:
+    if not self.client or not tests:
+      return tests
+
+    needs_backfill = []
+    for test in tests:
+      reference_range = test.get("reference_range")
+      if self._is_placeholder_reference_range(reference_range):
+        needs_backfill.append(
+          {
+            "test_name": test.get("test_name", ""),
+            "value": test.get("value", ""),
+            "unit": test.get("unit", ""),
+            "status": test.get("status", ""),
+          }
+        )
+
+    if not needs_backfill:
+      return tests
+
+    prompt = REFERENCE_RANGE_BACKFILL_PROMPT.format(
+      age=age,
+      gender_full="Male" if gender == "M" else "Female",
+      tests_json=json.dumps(needs_backfill, ensure_ascii=False),
+    )
+
+    try:
+      response = self.client.models.generate_content(
+        model=self.model,
+        contents=prompt,
+        config=types.GenerateContentConfig(
+          system_instruction="Return only strict JSON.",
+          response_mime_type="application/json",
+          temperature=0.0,
+        ),
+      )
+
+      parsed = json.loads(response.text)
+      payload = parsed[0] if isinstance(parsed, list) else parsed
+      generated_tests = payload.get("tests", []) if isinstance(payload, dict) else []
+
+      range_map = {
+        str(item.get("test_name", "")).strip().lower(): str(item.get("reference_range", "")).strip()
+        for item in generated_tests
+        if str(item.get("test_name", "")).strip()
+      }
+
+      normalized = []
+      for test in tests:
+        test_name_key = str(test.get("test_name", "")).strip().lower()
+        updated = dict(test)
+        if self._is_placeholder_reference_range(updated.get("reference_range")):
+          candidate = range_map.get(test_name_key, "").strip()
+          if candidate and not self._is_placeholder_reference_range(candidate):
+            updated["reference_range"] = candidate
+        normalized.append(updated)
+
+      return normalized
+    except Exception as e:
+      logger.error(f"Reference range backfill failed: {e}")
+      return tests
+
+  def _format_patient_context(self, patient_context: dict | None) -> str:
+    if not isinstance(patient_context, dict):
+      return "Not provided"
+
+    known_conditions = str(patient_context.get("known_conditions") or "").strip()
+    medications = str(patient_context.get("medications") or "").strip()
+    smoking_status = str(patient_context.get("smoking_status") or "").strip()
+    sleep_hours = str(patient_context.get("sleep_hours") or "").strip()
+
+    parts = []
+    if known_conditions:
+      parts.append(f"Known conditions: {known_conditions}")
+    if medications:
+      parts.append(f"Current medications: {medications}")
+    if smoking_status:
+      parts.append(f"Smoking status: {smoking_status}")
+    if sleep_hours:
+      parts.append(f"Average sleep hours: {sleep_hours}")
+
+    return "\n".join(parts) if parts else "Not provided"
+
+  def analyze(self, report_text: str, age: int, gender: str, language: str = "English", patient_context: dict | None = None) -> dict:
     if not self.client:
       return {"error": "No API Key", "error_status_code": 500}
 
@@ -275,6 +389,7 @@ class MedicalAnalyzer:
       age=age,
       gender_full="Male" if gender == "M" else "Female",
       language=language,
+      patient_context_block=self._format_patient_context(patient_context),
       report_text=report_text[: self.max_report_chars]
     )
 
@@ -291,6 +406,10 @@ class MedicalAnalyzer:
 
       data = json.loads(response.text)
       result = data[0] if isinstance(data, list) else data
+
+      tests = result.get("tests") or []
+      if isinstance(tests, list) and tests:
+        result["tests"] = self._backfill_reference_ranges_with_gemini(tests, age, gender)
 
       if language in _NON_ENGLISH_LANGUAGES:
         user_text = self._collect_user_facing_text(result)

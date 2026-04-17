@@ -94,6 +94,21 @@ class ChatManager:
                 cleaned_lines.append(line)
             text = "\n".join(cleaned_lines)
 
+        additional_disclaimer_phrases = [
+            "please remember: while i am here to help you understand these results",
+            "please follow the specific treatment plan your doctor has provided",
+            "if you notice your breathing becoming significantly more difficult",
+            "seek emergency care right away",
+        ]
+
+        filtered_lines = []
+        for line in text.splitlines():
+            line_lower = line.lower().strip().strip("*")
+            if any(phrase in line_lower for phrase in additional_disclaimer_phrases):
+                continue
+            filtered_lines.append(line)
+        text = "\n".join(filtered_lines)
+
         text = "\n".join([line.rstrip() for line in text.splitlines()])
         while "\n\n\n" in text:
             text = text.replace("\n\n\n", "\n\n")

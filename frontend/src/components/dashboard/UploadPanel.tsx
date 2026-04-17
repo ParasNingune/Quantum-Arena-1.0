@@ -4,6 +4,119 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { UploadCloud, CheckCircle, ChevronDown } from 'lucide-react';
 import { motion } from 'framer-motion';
 
+const UPLOAD_UI_TEXT: Record<string, Record<string, string>> = {
+  aiReady: {
+    English: 'AI Analysis Ready',
+    Hindi: 'AI विश्लेषण तैयार',
+    Marathi: 'AI विश्लेषण तयार',
+    Tamil: 'AI பகுப்பாய்வு தயார்',
+    Telugu: 'AI విశ్లేషణ సిద్ధంగా ఉంది',
+    Bengali: 'AI বিশ্লেষণ প্রস্তুত',
+  },
+  uploadTitle: {
+    English: 'Upload Your Report',
+    Hindi: 'अपनी रिपोर्ट अपलोड करें',
+    Marathi: 'तुमचा रिपोर्ट अपलोड करा',
+    Tamil: 'உங்கள் அறிக்கையை பதிவேற்றவும்',
+    Telugu: 'మీ రిపోర్ట్‌ను అప్లోడ్ చేయండి',
+    Bengali: 'আপনার রিপোর্ট আপলোড করুন',
+  },
+  uploadSubtitle: {
+    English: 'Get a clear, easy-to-understand explanation in your selected language',
+    Hindi: 'अपनी चुनी हुई भाषा में सरल और स्पष्ट व्याख्या पाएं',
+    Marathi: 'तुमच्या निवडलेल्या भाषेत सोपी आणि स्पष्ट माहिती मिळवा',
+    Tamil: 'நீங்கள் தேர்ந்தெடுத்த மொழியில் எளிய விளக்கத்தை பெறுங்கள்',
+    Telugu: 'మీరు ఎంచుకున్న భాషలో సులభంగా అర్థమయ్యే వివరణ పొందండి',
+    Bengali: 'আপনার নির্বাচিত ভাষায় সহজ ব্যাখ্যা পান',
+  },
+  dropHere: {
+    English: 'Drop your report here',
+    Hindi: 'अपनी रिपोर्ट यहाँ छोड़ें',
+    Marathi: 'तुमचा रिपोर्ट येथे ड्रॉप करा',
+    Tamil: 'உங்கள் அறிக்கையை இங்கே விடுங்கள்',
+    Telugu: 'మీ రిపోర్ట్‌ను ఇక్కడ వదలండి',
+    Bengali: 'রিপোর্ট এখানে দিন',
+  },
+  age: {
+    English: 'Age',
+    Hindi: 'उम्र',
+    Marathi: 'वय',
+    Tamil: 'வயது',
+    Telugu: 'వయస్సు',
+    Bengali: 'বয়স',
+  },
+  yourAge: {
+    English: 'Your age',
+    Hindi: 'आपकी उम्र',
+    Marathi: 'तुमचे वय',
+    Tamil: 'உங்கள் வயது',
+    Telugu: 'మీ వయస్సు',
+    Bengali: 'আপনার বয়স',
+  },
+  biologicalSex: {
+    English: 'Biological Sex',
+    Hindi: 'जैविक लिंग',
+    Marathi: 'जैविक लिंग',
+    Tamil: 'உயிரியல் பாலினம்',
+    Telugu: 'జీవశాస్త్రీయ లింగం',
+    Bengali: 'জৈবিক লিঙ্গ',
+  },
+  male: {
+    English: 'Male',
+    Hindi: 'पुरुष',
+    Marathi: 'पुरुष',
+    Tamil: 'ஆண்',
+    Telugu: 'పురుషుడు',
+    Bengali: 'পুরুষ',
+  },
+  female: {
+    English: 'Female',
+    Hindi: 'महिला',
+    Marathi: 'स्त्री',
+    Tamil: 'பெண்',
+    Telugu: 'స్త్రీ',
+    Bengali: 'মহিলা',
+  },
+  language: {
+    English: 'Language',
+    Hindi: 'भाषा',
+    Marathi: 'भाषा',
+    Tamil: 'மொழி',
+    Telugu: 'భాష',
+    Bengali: 'ভাষা',
+  },
+  generatedIn: {
+    English: 'Report explanations and recommendations will be generated in',
+    Hindi: 'रिपोर्ट की व्याख्या और सुझाव इस भाषा में बनाए जाएंगे',
+    Marathi: 'रिपोर्टचे स्पष्टीकरण आणि सूचना या भाषेत तयार होतील',
+    Tamil: 'அறிக்கை விளக்கங்கள் மற்றும் பரிந்துரைகள் இந்த மொழியில் உருவாகும்',
+    Telugu: 'రిపోర్ట్ వివరణలు మరియు సూచనలు ఈ భాషలో రూపొందుతాయి',
+    Bengali: 'রিপোর্টের ব্যাখ্যা এবং পরামর্শ এই ভাষায় তৈরি হবে',
+  },
+  analyze: {
+    English: 'Analyze Report',
+    Hindi: 'रिपोर्ट का विश्लेषण करें',
+    Marathi: 'रिपोर्ट विश्लेषण करा',
+    Tamil: 'அறிக்கையை பகுப்பாய்வு செய்க',
+    Telugu: 'రిపోర్ట్‌ను విశ్లేషించండి',
+    Bengali: 'রিপোর্ট বিশ্লেষণ করুন',
+  },
+  pleaseAdd: {
+    English: 'Please add',
+    Hindi: 'कृपया जोड़ें',
+    Marathi: 'कृपया जोडा',
+    Tamil: 'தயவுசெய்து சேர்க்கவும்',
+    Telugu: 'దయచేసి జోడించండి',
+    Bengali: 'অনুগ্রহ করে যোগ করুন',
+  },
+};
+
+const getUploadText = (language: string, key: string) => {
+  const dictionary = UPLOAD_UI_TEXT[key];
+  if (!dictionary) return key;
+  return dictionary[language] || dictionary.English || key;
+};
+
 /* ─────────── Dark Fluid Background ─────────── */
 function DarkFluidCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -97,11 +210,34 @@ function DarkFluidCanvas() {
 }
 
 /* ─────────── Upload Panel ─────────── */
-export default function UploadPanel({ onAnalyze }: { onAnalyze: (file: File | null, age: string, gender: string, language: string) => void }) {
+export default function UploadPanel({
+  onAnalyze,
+  selectedLanguage = 'English',
+  onLanguageChange,
+}: {
+  onAnalyze: (
+    file: File | null,
+    age: string,
+    gender: string,
+    language: string,
+    patientContext?: {
+      known_conditions?: string;
+      medications?: string;
+      smoking_status?: string;
+      sleep_hours?: string;
+    }
+  ) => void;
+  selectedLanguage?: string;
+  onLanguageChange?: (language: string) => void;
+}) {
   const [file, setFile] = useState<File | null>(null);
   const [age, setAge] = useState('');
   const [gender, setGender] = useState('');
-  const [language, setLanguage] = useState('English');
+  const [language, setLanguage] = useState(selectedLanguage);
+  const [knownConditions, setKnownConditions] = useState('');
+  const [medications, setMedications] = useState('');
+  const [smokingStatus, setSmokingStatus] = useState('');
+  const [sleepHours, setSleepHours] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -173,6 +309,15 @@ export default function UploadPanel({ onAnalyze }: { onAnalyze: (file: File | nu
     }
   }, []);
 
+  useEffect(() => {
+    setLanguage(selectedLanguage || 'English');
+  }, [selectedLanguage]);
+
+  const handleLanguageChange = (value: string) => {
+    setLanguage(value);
+    onLanguageChange?.(value);
+  };
+
   return (
     <div
       ref={containerRef}
@@ -193,10 +338,10 @@ export default function UploadPanel({ onAnalyze }: { onAnalyze: (file: File | nu
         <div className="relative z-10 text-center mb-8">
           <div className="inline-flex items-center gap-1.5 bg-white/[0.06] border border-white/[0.08] rounded-full px-4 py-1 mb-4">
             <span className="text-emerald-400 text-xs">●</span>
-            <span className="text-xs text-white/70 font-medium">AI Analysis Ready</span>
+            <span className="text-xs text-white/70 font-medium">{getUploadText(language, 'aiReady')}</span>
           </div>
-          <h2 className="text-2xl font-semibold text-white tracking-tight">Upload Your Report</h2>
-          <p className="text-sm text-white/65 mt-1">Get a clear, easy-to-understand explanation in your selected language</p>
+          <h2 className="text-2xl font-semibold text-white tracking-tight">{getUploadText(language, 'uploadTitle')}</h2>
+          <p className="text-sm text-white/65 mt-1">{getUploadText(language, 'uploadSubtitle')}</p>
         </div>
 
         {/* — Drag Zone — */}
@@ -207,7 +352,7 @@ export default function UploadPanel({ onAnalyze }: { onAnalyze: (file: File | nu
           onClick={() => fileInputRef.current?.click()}
         >
           <UploadCloud className="w-10 h-10 text-white/25 mx-auto" />
-          <p className="text-white/80 font-medium mt-4">Drop your report here</p>
+          <p className="text-white/80 font-medium mt-4">{getUploadText(language, 'dropHere')}</p>
           <p className="text-white/50 text-xs mt-1">PDF, JPG, JPEG, or PNG · Max 20MB</p>
           <input
             type="file"
@@ -228,10 +373,10 @@ export default function UploadPanel({ onAnalyze }: { onAnalyze: (file: File | nu
         <div className="relative z-10 flex flex-col gap-5 mb-6">
           {/* Age */}
           <div>
-            <label className="block text-xs text-white/65 font-medium mb-1.5">Age</label>
+            <label className="block text-xs text-white/65 font-medium mb-1.5">{getUploadText(language, 'age')}</label>
             <input
               type="number"
-              placeholder="Your age"
+              placeholder={getUploadText(language, 'yourAge')}
               min="1" max="120"
               value={age}
               onChange={e => setAge(e.target.value)}
@@ -241,7 +386,7 @@ export default function UploadPanel({ onAnalyze }: { onAnalyze: (file: File | nu
 
           {/* Gender */}
           <div>
-            <label className="block text-xs text-white/65 font-medium mb-1.5">Biological Sex</label>
+            <label className="block text-xs text-white/65 font-medium mb-1.5">{getUploadText(language, 'biologicalSex')}</label>
             <div className="grid grid-cols-2 gap-3">
               {['Male', 'Female'].map(g => (
                 <button
@@ -253,7 +398,7 @@ export default function UploadPanel({ onAnalyze }: { onAnalyze: (file: File | nu
                       : 'bg-white/[0.03] border-white/[0.08] text-white/65 hover:border-white/15 hover:text-white/85'
                   }`}
                 >
-                  {g === 'Male' ? '♂ ' : '♀ '}{g}
+                  {g === 'Male' ? '♂ ' : '♀ '}{g === 'Male' ? getUploadText(language, 'male') : getUploadText(language, 'female')}
                 </button>
               ))}
             </div>
@@ -261,11 +406,11 @@ export default function UploadPanel({ onAnalyze }: { onAnalyze: (file: File | nu
 
           {/* Language */}
           <div>
-            <label className="block text-xs text-white/65 font-medium mb-1.5">Language</label>
+            <label className="block text-xs text-white/65 font-medium mb-1.5">{getUploadText(language, 'language')}</label>
             <div className="relative">
               <select
                 value={language}
-                onChange={e => setLanguage(e.target.value)}
+                onChange={e => handleLanguageChange(e.target.value)}
                 className="w-full appearance-none bg-white/[0.03] border border-white/[0.08] rounded-xl px-4 py-3.5 text-white/95 focus:border-white/25 focus:bg-white/[0.06] transition-all outline-none pr-10"
               >
                 {['English', 'Hindi', 'Marathi', 'Tamil', 'Telugu', 'Bengali'].map(lang => (
@@ -274,7 +419,48 @@ export default function UploadPanel({ onAnalyze }: { onAnalyze: (file: File | nu
               </select>
               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" />
             </div>
-            <p className="text-[11px] text-white/55 mt-1.5">Report explanations and recommendations will be generated in {language}.</p>
+            <p className="text-[11px] text-white/55 mt-1.5">{getUploadText(language, 'generatedIn')} {language}.</p>
+          </div>
+
+          <div className="pt-1">
+            <p className="text-xs text-white/70 font-semibold mb-2">Optional personalization</p>
+            <div className="grid grid-cols-1 gap-3">
+              <textarea
+                value={knownConditions}
+                onChange={(e) => setKnownConditions(e.target.value)}
+                placeholder="Known conditions (e.g., diabetes, hypertension)"
+                className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-4 py-3 text-white/95 placeholder:text-white/40 focus:border-white/25 focus:bg-white/[0.06] transition-all outline-none min-h-[74px] resize-y"
+              />
+              <textarea
+                value={medications}
+                onChange={(e) => setMedications(e.target.value)}
+                placeholder="Current medications (optional)"
+                className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-4 py-3 text-white/95 placeholder:text-white/40 focus:border-white/25 focus:bg-white/[0.06] transition-all outline-none min-h-[74px] resize-y"
+              />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <select
+                  value={smokingStatus}
+                  onChange={(e) => setSmokingStatus(e.target.value)}
+                  className="w-full appearance-none bg-white/[0.03] border border-white/[0.08] rounded-xl px-4 py-3.5 text-white/95 focus:border-white/25 focus:bg-white/[0.06] transition-all outline-none"
+                >
+                  <option value="" className="bg-neutral-900 text-white">Smoking status (optional)</option>
+                  <option value="Never" className="bg-neutral-900 text-white">Never</option>
+                  <option value="Occasional" className="bg-neutral-900 text-white">Occasional</option>
+                  <option value="Regular" className="bg-neutral-900 text-white">Regular</option>
+                  <option value="Former smoker" className="bg-neutral-900 text-white">Former smoker</option>
+                </select>
+                <input
+                  type="number"
+                  min="0"
+                  max="24"
+                  step="0.5"
+                  value={sleepHours}
+                  onChange={(e) => setSleepHours(e.target.value)}
+                  placeholder="Average sleep hours"
+                  className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-4 py-3.5 text-white/95 placeholder:text-white/40 focus:border-white/25 focus:bg-white/[0.06] transition-all outline-none"
+                />
+              </div>
+            </div>
           </div>
         </div>
 
@@ -282,14 +468,19 @@ export default function UploadPanel({ onAnalyze }: { onAnalyze: (file: File | nu
           <div className="relative z-10 mb-5 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
             {formError && <p className="text-xs text-red-300">{formError}</p>}
             {!formError && missingFields.length > 0 && (
-              <p className="text-xs text-white/70">Please add: {missingFields.join(', ')}.</p>
+              <p className="text-xs text-white/70">{getUploadText(language, 'pleaseAdd')}: {missingFields.join(', ')}.</p>
             )}
           </div>
         )}
 
         {/* — CTA — */}
         <button
-          onClick={() => onAnalyze(file, age, gender, language)}
+          onClick={() => onAnalyze(file, age, gender, language, {
+            known_conditions: knownConditions.trim(),
+            medications: medications.trim(),
+            smoking_status: smokingStatus,
+            sleep_hours: sleepHours.trim(),
+          })}
           disabled={isSubmitDisabled}
           className={`relative z-10 w-full rounded-2xl py-4 font-semibold transition-all duration-200 ${
             isSubmitDisabled
@@ -297,7 +488,7 @@ export default function UploadPanel({ onAnalyze }: { onAnalyze: (file: File | nu
               : 'bg-white text-black hover:bg-white/90 shadow-[0_0_30px_rgba(255,255,255,0.1)] hover:shadow-[0_0_40px_rgba(255,255,255,0.2)]'
           }`}
         >
-          Analyze Report &rarr;
+          {getUploadText(language, 'analyze')} &rarr;
         </button>
       </motion.div>
     </div>

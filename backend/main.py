@@ -5,6 +5,9 @@ from pydantic import BaseModel
 from typing import List, Optional
 import io
 import os
+import json
+import smtplib
+from email.message import EmailMessage
 import pypdf
 from pipeline.analyzer import get_analyzer
 from pipeline.chatbot import get_chat_manager
@@ -12,7 +15,7 @@ from pipeline.comparator import get_comparator
 from pipeline.ocr import get_extractor
 from pipeline.pdf_report import generate_pdf
 from pipeline.comparison_pdf import generate_comparison_pdf
-from database import save_report, get_reports_by_user, get_report_by_id, save_test_reminder, get_test_reminders_by_user, report_belongs_to_user, get_due_reminders_by_user, mark_reminder_as_notified
+from database import save_report, get_reports_by_user, get_report_by_id, save_test_reminder, get_test_reminders_by_user, report_belongs_to_user, get_due_reminders_by_user, mark_reminder_as_notified, mark_reminder_as_emailed, delete_report_for_user
 from loguru import logger
 from dotenv import load_dotenv
 
@@ -109,6 +112,99 @@ class ReminderRequest(BaseModel):
 class MarkReminderNotifiedRequest(BaseModel):
     user_email: str
 
+
+class TestReminderEmailRequest(BaseModel):
+    user_email: str
+    report_id: Optional[str] = None
+
+
+def _send_due_reminder_email(user_email: str, reminder: dict, report: Optional[dict]) -> bool:
+    smtp_host = os.getenv("SMTP_HOST", "").strip()
+    smtp_port = int(os.getenv("SMTP_PORT", "587").strip() or "587")
+    smtp_user = os.getenv("SMTP_USER", "").strip()
+    smtp_password = os.getenv("SMTP_PASSWORD", "").strip()
+    smtp_from = os.getenv("SMTP_FROM", smtp_user).strip()
+    use_tls = os.getenv("SMTP_USE_TLS", "true").strip().lower() not in {"0", "false", "no"}
+
+    if not smtp_host or not smtp_from:
+        logger.warning("SMTP not configured (SMTP_HOST/SMTP_FROM missing). Skipping reminder email.")
+        return False
+
+    report_summary = ""
+    if report:
+        predicted = ""
+        patterns = report.get("patterns") or []
+        if patterns:
+            top = sorted(patterns, key=lambda p: p.get("confidence", 0), reverse=True)[0]
+            predicted = str(top.get("name") or "").strip()
+
+        report_summary = (
+            f"\n\nReport details:\n"
+            f"- Report ID: {report.get('id', 'N/A')}\n"
+            f"- Health Score: {report.get('health_score', 'N/A')}\n"
+            f"- Predicted Condition: {predicted or 'N/A'}\n"
+            f"- Health Summary: {report.get('health_summary', 'N/A')}\n"
+        )
+
+    body = (
+        f"Hello,\n\n"
+        f"This is your ClariMed reminder that your scheduled follow-up is due.\n\n"
+        f"Reminder details:\n"
+        f"- Reminder ID: {reminder.get('id', 'N/A')}\n"
+        f"- Due At: {reminder.get('due_at', 'N/A')}\n"
+        f"- Planned Interval: {reminder.get('remind_in_days', 'N/A')} days\n"
+        f"- Recorded Health Score: {reminder.get('health_score', 'N/A')}\n"
+        f"- Linked Report ID: {reminder.get('report_id', 'N/A')}"
+        f"{report_summary}\n"
+        f"Please log in to ClariMed to review your latest report and next steps.\n\n"
+        f"Regards,\nClariMed"
+    )
+
+    message = EmailMessage()
+    message["Subject"] = "ClariMed Reminder: Follow-up due"
+    message["From"] = smtp_from
+    message["To"] = user_email
+    message.set_content(body)
+
+    if report:
+        try:
+            patient_age = int(report.get("patient_age") or 30)
+        except Exception:
+            patient_age = 30
+        patient_gender = str(report.get("patient_gender") or "M")
+        patient_name = str(report.get("patient_name") or "Patient")
+
+        try:
+            report_pdf_bytes = generate_pdf(
+                report,
+                patient_name=patient_name,
+                patient_age=patient_age,
+                patient_gender=patient_gender,
+            )
+            attachment_name = f"ClariMed_Previous_Report_{report.get('id', 'report')}.pdf"
+            message.add_attachment(
+                report_pdf_bytes,
+                maintype="application",
+                subtype="pdf",
+                filename=attachment_name,
+            )
+        except Exception as exc:
+            logger.error(f"Failed generating report PDF attachment for email to {user_email}: {exc}")
+
+    try:
+        with smtplib.SMTP(smtp_host, smtp_port, timeout=20) as smtp:
+            smtp.ehlo()
+            if use_tls:
+                smtp.starttls()
+                smtp.ehlo()
+            if smtp_user and smtp_password:
+                smtp.login(smtp_user, smtp_password)
+            smtp.send_message(message)
+        return True
+    except Exception as exc:
+        logger.error(f"Failed to send reminder email to {user_email}: {exc}")
+        return False
+
 @app.get("/")
 def home():
     return {
@@ -122,6 +218,7 @@ async def analyze_report(
     age: int = Form(...),
     gender: str = Form(...),
     language: str = Form(...),
+    patient_context: Optional[str] = Form(None),
     user_email: Optional[str] = Form(None),
 ):
     filename = (file.filename or "").lower()
@@ -140,12 +237,18 @@ async def analyze_report(
 
         # Map gender string to M/F for the analyzer
         gender_code = "M" if gender.lower().startswith("m") else "F"
+        parsed_context = {}
+        if patient_context:
+            try:
+                parsed_context = json.loads(patient_context)
+            except Exception:
+                parsed_context = {}
 
         logger.info(
             f"Analyzing file: {file.filename} (age={age}, gender={gender_code}, extraction={extraction.method_used})"
         )
         analyzer = get_analyzer()
-        result = analyzer.analyze(text, age, gender_code, language)
+        result = analyzer.analyze(text, age, gender_code, language, parsed_context)
 
         if "error" in result:
             status_code = int(result.get("error_status_code", 500))
@@ -162,6 +265,7 @@ async def analyze_report(
             "patient_age": age,
             "patient_gender": gender_code,
             "report_language": language,
+            "patient_context": parsed_context,
             "source_filename": file.filename or "uploaded_file",
         }
 
@@ -205,6 +309,25 @@ async def get_single_report(report_id: str):
     except Exception as e:
         if isinstance(e, HTTPException): raise e
         logger.error(f"DB Error getting report {report_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/report/{report_id}")
+async def delete_single_report(report_id: str, user_email: str):
+    try:
+        normalized_email = (user_email or "").strip().lower()
+        if not normalized_email:
+            raise HTTPException(status_code=400, detail="user_email is required")
+
+        deleted = delete_report_for_user(report_id, normalized_email)
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Report not found")
+
+        return {"deleted": True, "report_id": report_id}
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        logger.error(f"DB Error deleting report {report_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/chat")
@@ -272,11 +395,63 @@ async def get_due_reminders(user_email: str):
             raise HTTPException(status_code=400, detail="user_email is required")
 
         reminders = get_due_reminders_by_user(normalized_email)
+
+        for reminder in reminders:
+            already_emailed = reminder.get("email_sent_at")
+            if already_emailed:
+                continue
+            linked_report = None
+            reminder_report_id = reminder.get("report_id")
+            if reminder_report_id:
+                linked_report = get_report_by_id(reminder_report_id)
+            email_sent = _send_due_reminder_email(normalized_email, reminder, linked_report)
+            if email_sent:
+                mark_reminder_as_emailed(reminder.get("id"), normalized_email)
+
         return {"reminders": reminders}
     except HTTPException as e:
         raise e
     except Exception as e:
         logger.error(f"Due Reminder Fetch API Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/reminders/test-email")
+async def send_test_reminder_email(req: TestReminderEmailRequest):
+    try:
+        user_email = (req.user_email or "").strip().lower()
+        if not user_email:
+            raise HTTPException(status_code=400, detail="user_email is required")
+
+        report = None
+        if req.report_id:
+            report = get_report_by_id(req.report_id)
+        if not report:
+            user_reports = get_reports_by_user(user_email)
+            if user_reports:
+                report = user_reports[0]
+
+        reminder_payload = {
+            "id": f"test-{os.urandom(4).hex()}",
+            "due_at": "in ~5 seconds (test)",
+            "remind_in_days": 0,
+            "health_score": report.get("health_score") if report else None,
+            "report_id": report.get("id") if report else None,
+        }
+
+        sent = _send_due_reminder_email(user_email, reminder_payload, report)
+        if not sent:
+            raise HTTPException(status_code=500, detail="Failed to send test reminder email. Check SMTP config and credentials.")
+
+        return {
+            "sent": True,
+            "to": user_email,
+            "report_id": reminder_payload.get("report_id"),
+        }
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        logger.error(f"Test Reminder Email API Error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

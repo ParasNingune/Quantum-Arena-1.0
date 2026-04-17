@@ -20,17 +20,41 @@ import PastReportsTab from '../../components/dashboard/PastReportsTab';
 import CanvasSequence from "@/components/CanvasSequence";
 import { apiUrl } from '../../lib/api';
 
+type UiLanguage = 'English' | 'Hindi' | 'Marathi' | 'Tamil' | 'Telugu' | 'Bengali';
+
+const UI_TEXT: Record<string, Record<string, string>> = {
+  extractingText: { English: 'Extracting text from report...', Hindi: 'रिपोर्ट से टेक्स्ट निकाला जा रहा है...', Marathi: 'रिपोर्टमधून मजकूर काढला जात आहे...', Tamil: 'அறிக்கையிலிருந்து உரை எடுக்கப்படுகிறது...', Telugu: 'రిపోర్ట్ నుండి టెక్స్ట్ తీసుకుంటోంది...', Bengali: 'রিপোর্ট থেকে লেখা বের করা হচ্ছে...' },
+  identifyingParams: { English: 'Identifying medical parameters...', Hindi: 'चिकित्सीय पैरामीटर पहचाने जा रहे हैं...', Marathi: 'वैद्यकीय पॅरामीटर्स ओळखले जात आहेत...', Tamil: 'மருத்துவ அளவுகள் கண்டறியப்படுகிறது...', Telugu: 'వైద్య పరామితులు గుర్తిస్తోంది...', Bengali: 'মেডিকেল প্যারামিটার চিহ্নিত করা হচ্ছে...' },
+  checkingRanges: { English: 'Checking reference ranges...', Hindi: 'रेफरेंस रेंज जाँची जा रही है...', Marathi: 'रेफरन्स रेंज तपासली जात आहे...', Tamil: 'குறிப்பு வரம்புகள் சரிபார்க்கப்படுகிறது...', Telugu: 'రెఫరెన్స్ రేంజ్‌లు తనిఖీ చేస్తోంది...', Bengali: 'রেফারেন্স রেঞ্জ যাচাই করা হচ্ছে...' },
+  detectingPatterns: { English: 'Detecting clinical patterns...', Hindi: 'क्लिनिकल पैटर्न पहचाने जा रहे हैं...', Marathi: 'क्लिनिकल पॅटर्न शोधले जात आहेत...', Tamil: 'மருத்துவ முறைகள் கண்டறியப்படுகிறது...', Telugu: 'క్లినికల్ ప్యాటర్న్స్ గుర్తిస్తోంది...', Bengali: 'ক্লিনিকাল প্যাটার্ন শনাক্ত করা হচ্ছে...' },
+  generatingSummary: { English: 'Generating your health summary...', Hindi: 'आपका स्वास्थ्य सारांश बनाया जा रहा है...', Marathi: 'तुमचा आरोग्य सारांश तयार होत आहे...', Tamil: 'உங்கள் சுகாதார சுருக்கம் உருவாக்கப்படுகிறது...', Telugu: 'మీ ఆరోగ్య సారాంశం రూపొందిస్తోంది...', Bengali: 'আপনার স্বাস্থ্য সারাংশ তৈরি হচ্ছে...' },
+  tabOverview: { English: 'Overview', Hindi: 'अवलोकन', Marathi: 'आढावा', Tamil: 'சுருக்கம்', Telugu: 'అవలోకనం', Bengali: 'সারসংক্ষেপ' },
+  tabActionPlan: { English: 'Action Plan', Hindi: 'कार्य योजना', Marathi: 'कृती योजना', Tamil: 'செயல் திட்டம்', Telugu: 'చర్యా ప్రణాళిక', Bengali: 'অ্যাকশন প্ল্যান' },
+  tabResources: { English: 'Resources', Hindi: 'संसाधन', Marathi: 'संसाधने', Tamil: 'வளங்கள்', Telugu: 'వనరులు', Bengali: 'রিসোর্স' },
+  tabPastReports: { English: 'Past Reports', Hindi: 'पिछली रिपोर्टें', Marathi: 'मागील रिपोर्ट', Tamil: 'முந்தைய அறிக்கைகள்', Telugu: 'గత రిపోర్టులు', Bengali: 'পূর্বের রিপোর্ট' },
+  uploadReport: { English: 'Upload Report', Hindi: 'रिपोर्ट अपलोड करें', Marathi: 'रिपोर्ट अपलोड करा', Tamil: 'அறிக்கை பதிவேற்று', Telugu: 'రిపోర్ట్ అప్లోడ్ చేయండి', Bengali: 'রিপোর্ট আপলোড করুন' },
+  notifications: { English: 'Notifications', Hindi: 'सूचनाएँ', Marathi: 'सूचना', Tamil: 'அறிவிப்புகள்', Telugu: 'నోటిఫికేషన్లు', Bengali: 'নোটিফিকেশন' },
+  logout: { English: 'Log Out', Hindi: 'लॉग आउट', Marathi: 'लॉग आउट', Tamil: 'வெளியேறு', Telugu: 'లాగ్ అవుట్', Bengali: 'লগ আউট' },
+  explainDisease: { English: 'Explain this disease', Hindi: 'इस बीमारी को समझाएँ', Marathi: 'हा आजार समजावून सांगा', Tamil: 'இந்த நோயை விளக்கவும்', Telugu: 'ఈ వ్యాధిని వివరించండి', Bengali: 'এই রোগটি ব্যাখ্যা করুন' },
+};
+
+const t = (language: string, key: string, fallback?: string) => {
+  const dictionary = UI_TEXT[key];
+  if (!dictionary) return fallback || key;
+  return dictionary[language] || dictionary.English || fallback || key;
+};
+
 /* ──────────────────────────────────────────── */
 /* LOADING SEQUENCE                             */
 /* ──────────────────────────────────────────── */
-const LoadingSequence = () => {
+const LoadingSequence = ({ uiLanguage }: { uiLanguage: string }) => {
   const [step, setStep] = useState(0);
   const steps = [
-    "Extracting text from report...",
-    "Identifying medical parameters...",
-    "Checking reference ranges...",
-    "Detecting clinical patterns...",
-    "Generating your health summary..."
+    t(uiLanguage, 'extractingText', 'Extracting text from report...'),
+    t(uiLanguage, 'identifyingParams', 'Identifying medical parameters...'),
+    t(uiLanguage, 'checkingRanges', 'Checking reference ranges...'),
+    t(uiLanguage, 'detectingPatterns', 'Detecting clinical patterns...'),
+    t(uiLanguage, 'generatingSummary', 'Generating your health summary...')
   ];
 
   useEffect(() => {
@@ -71,17 +95,17 @@ const LoadingSequence = () => {
 /* ──────────────────────────────────────────── */
 /* SECTION NAV                                  */
 /* ──────────────────────────────────────────── */
-const TABS = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'plan', label: 'Action Plan' },
-  { id: 'resources', label: 'Resources' },
-  { id: 'history', label: 'Past Reports' },
+const getTabs = (uiLanguage: string) => [
+  { id: 'overview', label: t(uiLanguage, 'tabOverview', 'Overview') },
+  { id: 'plan', label: t(uiLanguage, 'tabActionPlan', 'Action Plan') },
+  { id: 'resources', label: t(uiLanguage, 'tabResources', 'Resources') },
+  { id: 'history', label: t(uiLanguage, 'tabPastReports', 'Past Reports') },
 ];
 
 /* ──────────────────────────────────────────── */
 /* RESULTS VIEW — Zen Medical Bento Grid        */
 /* ──────────────────────────────────────────── */
-function ResultsView({ results, onReset, user, onLogout, onOpenNotifications, notificationCount, onViewReport }: { results: any; onReset: () => void; user: { name: string; email: string }; onLogout: () => void; onOpenNotifications: () => void; notificationCount: number; onViewReport?: (r: any) => void }) {
+function ResultsView({ results, onReset, user, onLogout, onOpenNotifications, notificationCount, onViewReport, uiLanguage }: { results: any; onReset: () => void; user: { name: string; email: string }; onLogout: () => void; onOpenNotifications: () => void; notificationCount: number; onViewReport?: (r: any) => void; uiLanguage: string }) {
   const allTests = results.all_tests || results.tests || [];
   const healthScore = Number(results?.health_score ?? 0);
   const doctorQuestions = results.doctor_questions || [];
@@ -91,7 +115,9 @@ function ResultsView({ results, onReset, user, onLogout, onOpenNotifications, no
     : null;
   const [showAllQuestions, setShowAllQuestions] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
+  const [explainRequest, setExplainRequest] = useState<{ id: number; content: string } | null>(null);
   const displayedQuestions = showAllQuestions ? doctorQuestions : doctorQuestions.slice(0, 3);
+  const tabs = getTabs(uiLanguage);
 
   const handleViewPastReport = (report: any) => {
     const normalized = { ...report };
@@ -112,9 +138,43 @@ function ResultsView({ results, onReset, user, onLogout, onOpenNotifications, no
     if (onViewReport) onViewReport(normalized);
   };
 
+  const handleExplainDisease = () => {
+    if (!predictedCondition) return;
+    const content = `${predictedCondition.name}. ${predictedCondition.explanation || ''}`.trim();
+    if (!content) return;
+
+    setExplainRequest({
+      id: Date.now(),
+      content,
+    });
+  };
+
+  const handleExplainHealthScore = () => {
+    const tests = allTests || [];
+    const flagged = tests.filter((test: any) => test?.status !== 'normal');
+    const topDrivers = flagged
+      .slice(0, 4)
+      .map((test: any) => `${test.test_name} (${test.status})`)
+      .join(', ');
+
+    const summary = [
+      `Health score: ${healthScore}/100.`,
+      `Normal tests: ${tests.length - flagged.length}, flagged tests: ${flagged.length}.`,
+      topDrivers ? `Key drivers: ${topDrivers}.` : '',
+      results?.health_summary ? `Summary: ${results.health_summary}` : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
+
+    setExplainRequest({
+      id: Date.now(),
+      content: summary,
+    });
+  };
+
   return (
     <div className="zen-results relative">
-      <ChatWidget analysisData={results} />
+      <ChatWidget analysisData={results} explainRequest={explainRequest} uiLanguage={uiLanguage} />
       {/* Light Navbar */}
       <nav
         className="w-full px-6 py-4 flex justify-between items-center sticky top-0 z-50"
@@ -148,14 +208,14 @@ function ResultsView({ results, onReset, user, onLogout, onOpenNotifications, no
             className="zen-btn-ghost"
             style={{ fontSize: '0.8rem', padding: '8px 12px' }}
           >
-            Upload Report
+            {t(uiLanguage, 'uploadReport', 'Upload Report')}
           </button>
           <button onClick={onOpenNotifications} className="zen-btn-ghost" style={{ fontSize: '0.8rem', padding: '8px 12px' }}>
             <Bell className="w-4 h-4" />
-            Notifications ({notificationCount})
+            {t(uiLanguage, 'notifications', 'Notifications')} ({notificationCount})
           </button>
           <button onClick={onLogout} className="zen-btn-ghost" style={{ fontSize: '0.8rem', padding: '8px 16px' }}>
-            Log Out
+            {t(uiLanguage, 'logout', 'Log Out')}
           </button>
         </div>
       </nav>
@@ -163,7 +223,7 @@ function ResultsView({ results, onReset, user, onLogout, onOpenNotifications, no
       {/* Tab Nav */}
       <div className="zen-section-nav">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex gap-2 overflow-x-auto">
-          {TABS.map(({ id, label }) => (
+          {tabs.map(({ id, label }) => (
             <button
               key={id}
               className={`px-4 py-3 text-sm font-semibold transition-colors border-b-2 whitespace-nowrap flex items-center gap-1.5 ${
@@ -221,6 +281,15 @@ function ResultsView({ results, onReset, user, onLogout, onOpenNotifications, no
                       <p className="zen-readable-body">
                         {predictedCondition.explanation || 'Detected from the biomarker relationships in your report.'}
                       </p>
+                      <div className="mt-4 flex justify-center">
+                        <button
+                          onClick={handleExplainDisease}
+                          className="zen-btn-ghost"
+                          style={{ fontSize: '0.78rem', padding: '8px 12px' }}
+                        >
+                          {t(uiLanguage, 'explainDisease', 'Explain this disease')}
+                        </button>
+                      </div>
                     </>
                   ) : (
                     <p className="zen-readable-body">
@@ -231,19 +300,23 @@ function ResultsView({ results, onReset, user, onLogout, onOpenNotifications, no
               </section>
 
               <section className="mb-12">
-                <HealthScoreGauge data={{ ...results, all_tests: allTests }} />
+                <HealthScoreGauge
+                  data={{ ...results, all_tests: allTests }}
+                  uiLanguage={uiLanguage}
+                  onExplainScore={handleExplainHealthScore}
+                />
               </section>
 
               <section className="mb-12">
                 <div className="mb-8">
-                  <TrendRibbon tests={allTests} />
+                  <TrendRibbon tests={allTests} uiLanguage={uiLanguage} />
                 </div>
                 <div>
                   <h3 className="font-semibold text-lg mb-1" style={{ color: 'var(--zen-text)' }}>Your Biomarkers</h3>
                   <p className="text-sm mb-4" style={{ color: 'var(--zen-text-muted)' }}>
                     Tap any card to see a plain-English explanation
                   </p>
-                  <HumanReadableTests tests={allTests} />
+                  <HumanReadableTests tests={allTests} uiLanguage={uiLanguage} />
                 </div>
               </section>
             </motion.div>
@@ -389,7 +462,33 @@ export default function Dashboard() {
   const [quickReminderDays, setQuickReminderDays] = useState('30');
   const [quickReminderSaving, setQuickReminderSaving] = useState(false);
   const [quickReminderMessage, setQuickReminderMessage] = useState<string | null>(null);
+  const [testNotificationArmed, setTestNotificationArmed] = useState(false);
+  const [inAppNotification, setInAppNotification] = useState<string | null>(null);
   const dueReminderCheckInFlightRef = useRef(false);
+  const [uiLanguage, setUiLanguage] = useState<UiLanguage>('English');
+
+  const fetchScheduledNotifications = async (email?: string) => {
+    const normalizedEmail = (email || user?.email || '').trim().toLowerCase();
+    if (!normalizedEmail) return;
+
+    try {
+      const response = await fetch(apiUrl(`/reminders/${encodeURIComponent(normalizedEmail)}`));
+      if (!response.ok) {
+        let message = 'Failed to fetch scheduled notifications.';
+        try {
+          const err = await response.json();
+          if (err?.detail) message = err.detail;
+        } catch {}
+        throw new Error(message);
+      }
+
+      const data = await response.json();
+      setScheduledNotifications(Array.isArray(data?.reminders) ? data.reminders : []);
+      setNotificationsError(null);
+    } catch (error: any) {
+      setNotificationsError(error?.message || 'Failed to fetch scheduled notifications.');
+    }
+  };
 
   useEffect(() => {
     const saved = localStorage.getItem('medreport_user');
@@ -401,6 +500,10 @@ export default function Dashboard() {
       const parsed = JSON.parse(saved);
       if (!parsed.name || !parsed.email) throw new Error('Invalid user');
       setUser(parsed);
+      const savedLanguage = localStorage.getItem('clarimed_ui_language') as UiLanguage | null;
+      if (savedLanguage) {
+        setUiLanguage(savedLanguage);
+      }
     } catch (e) {
       localStorage.removeItem('medreport_user');
       router.push('/auth');
@@ -418,7 +521,20 @@ export default function Dashboard() {
     router.push('/auth');
   };
 
-  const handleAnalyze = async (file: File | null, age: string, gender: string, language: string) => {
+  const handleAnalyze = async (
+    file: File | null,
+    age: string,
+    gender: string,
+    language: string,
+    patientContext?: {
+      known_conditions?: string;
+      medications?: string;
+      smoking_status?: string;
+      sleep_hours?: string;
+    }
+  ) => {
+    setUiLanguage((language as UiLanguage) || 'English');
+    localStorage.setItem('clarimed_ui_language', language);
     setErrorBanner(null);
     if (!isBackendOnline) {
       setErrorBanner('Backend is offline. Start backend service to analyze reports.');
@@ -437,6 +553,9 @@ export default function Dashboard() {
     formData.append('age', age);
     formData.append('gender', gender);
     formData.append('language', language);
+    if (patientContext) {
+      formData.append('patient_context', JSON.stringify(patientContext));
+    }
 
     if (user?.email) formData.append('user_email', user.email);
 
@@ -459,6 +578,10 @@ export default function Dashboard() {
         throw new Error(friendlyMessage);
       }
       const data = await res.json();
+      if (data?.report_language) {
+        setUiLanguage(data.report_language as UiLanguage);
+        localStorage.setItem('clarimed_ui_language', data.report_language);
+      }
 
       data.all_tests = data.tests || [];
       data.doctor_questions = data.doctor_questions || [];
@@ -527,18 +650,14 @@ export default function Dashboard() {
         throw new Error(message);
       }
 
+      const data = await res.json();
+      const created = data?.reminder;
+
       setReminderMessage(`Reminder scheduled in ${days} days.`);
-      setScheduledNotifications((prev) => [
-        {
-          id: `temp-${Date.now()}`,
-          remind_in_days: days,
-          due_at: new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString(),
-          health_score: results?.health_score,
-          report_id: results?.id,
-          status: 'scheduled',
-        },
-        ...prev,
-      ]);
+      if (created) {
+        setScheduledNotifications((prev) => [created, ...prev]);
+      }
+      await fetchScheduledNotifications(user.email);
       setTimeout(() => setShowReminderPrompt(false), 1200);
     } catch (e: any) {
       setReminderMessage(e?.message || 'Failed to save reminder.');
@@ -554,20 +673,8 @@ export default function Dashboard() {
     setNotificationsLoading(true);
     setNotificationsError(null);
     try {
-      const res = await fetch(apiUrl(`/reminders/${encodeURIComponent(user.email)}`));
-      if (!res.ok) {
-        let message = 'Failed to fetch scheduled notifications.';
-        try {
-          const err = await res.json();
-          if (err?.detail) message = err.detail;
-        } catch {}
-        throw new Error(message);
-      }
-
-      const data = await res.json();
-      setScheduledNotifications(data?.reminders || []);
-    } catch (e: any) {
-      setNotificationsError(e?.message || 'Failed to fetch scheduled notifications.');
+      await fetchScheduledNotifications(user.email);
+    } catch {
     } finally {
       setNotificationsLoading(false);
     }
@@ -594,6 +701,10 @@ export default function Dashboard() {
       }
 
       report.all_tests = report.all_tests || report.tests || [];
+      if (report?.report_language) {
+        setUiLanguage(report.report_language as UiLanguage);
+        localStorage.setItem('clarimed_ui_language', report.report_language);
+      }
       report.doctor_questions = report.doctor_questions || [];
       if (report.doctor_questions.length === 0) {
         (report.patterns || []).forEach((pattern: any) => {
@@ -651,6 +762,7 @@ export default function Dashboard() {
       if (created) {
         setScheduledNotifications((prev) => [created, ...prev]);
       }
+      await fetchScheduledNotifications(user.email);
       setQuickReminderMessage(`Created reminder for ${days} days.`);
     } catch (e: any) {
       setQuickReminderMessage(e?.message || 'Failed to create notification.');
@@ -659,21 +771,53 @@ export default function Dashboard() {
     }
   };
 
-  const checkDueBrowserNotifications = async () => {
-    if (!user?.email) return;
-    if (typeof window === 'undefined' || !('Notification' in window)) return;
-    if (dueReminderCheckInFlightRef.current) return;
-
-    let permission = Notification.permission;
-    if (permission === 'default') {
-      try {
-        permission = await Notification.requestPermission();
-      } catch {
-        return;
-      }
+  const handleTriggerTestNotification = async () => {
+    if (typeof window === 'undefined' || !user?.email) {
+      setQuickReminderMessage('Email test is not available in this environment.');
+      return;
     }
 
-    if (permission !== 'granted') return;
+    setTestNotificationArmed(true);
+    setQuickReminderMessage('Test email will be sent in ~5 seconds.');
+    setInAppNotification('Test email armed. Sending in around 5 seconds...');
+
+    window.setTimeout(async () => {
+      try {
+        const response = await fetch(apiUrl('/reminders/test-email'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_email: user.email,
+            report_id: results?.id,
+          }),
+        });
+
+        if (!response.ok) {
+          let message = 'Failed to send test email.';
+          try {
+            const errorJson = await response.json();
+            if (errorJson?.detail) message = errorJson.detail;
+          } catch {}
+          throw new Error(message);
+        }
+
+        setInAppNotification(`Test reminder email sent to ${user.email}.`);
+        setQuickReminderMessage(`Test reminder email sent to ${user.email}.`);
+      } catch (error: any) {
+        const message = error?.message || 'Failed to send test reminder email.';
+        setInAppNotification(message);
+        setQuickReminderMessage(message);
+      } finally {
+        setTestNotificationArmed(false);
+        window.setTimeout(() => setInAppNotification(null), 3500);
+      }
+    }, 5000);
+  };
+
+  const checkDueEmailNotifications = async () => {
+    if (!user?.email) return;
+    if (typeof window === 'undefined') return;
+    if (dueReminderCheckInFlightRef.current) return;
 
     try {
       dueReminderCheckInFlightRef.current = true;
@@ -684,26 +828,13 @@ export default function Dashboard() {
       const dueReminders = Array.isArray(data?.reminders) ? data.reminders : [];
 
       for (const reminder of dueReminders) {
-        const title = 'ClariMed Reminder';
         const body = `Your scheduled health reminder is due today${reminder?.health_score !== null && reminder?.health_score !== undefined ? ` • Health score: ${reminder.health_score}` : ''}.`;
+        setInAppNotification(`Email reminder sent. ${body}`);
+      }
 
-        const notification = new Notification(title, {
-          body,
-          tag: `clarimed-reminder-${reminder.id}`,
-        });
-
-        notification.onclick = async () => {
-          window.focus();
-          if (reminder?.report_id) {
-            await handleViewReminderReport(reminder.report_id);
-          }
-        };
-
-        await fetch(apiUrl(`/reminders/${encodeURIComponent(reminder.id)}/mark-notified`), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user_email: user.email }),
-        });
+      if (dueReminders.length > 0) {
+        window.setTimeout(() => setInAppNotification(null), 5000);
+        await fetchScheduledNotifications(user.email);
       }
     } catch (err) {
       console.error('Due reminder browser notification check failed:', err);
@@ -715,9 +846,10 @@ export default function Dashboard() {
   useEffect(() => {
     if (!user?.email) return;
 
-    checkDueBrowserNotifications();
+    fetchScheduledNotifications(user.email);
+    checkDueEmailNotifications();
     const intervalId = window.setInterval(() => {
-      checkDueBrowserNotifications();
+      checkDueEmailNotifications();
     }, 60 * 1000);
 
     return () => window.clearInterval(intervalId);
@@ -758,6 +890,16 @@ export default function Dashboard() {
                 className="ml-auto px-3 py-2 rounded-lg bg-emerald-500 text-white hover:bg-emerald-400 transition-colors disabled:opacity-50"
               >
                 {quickReminderSaving ? 'Creating...' : 'Create'}
+              </button>
+            </div>
+            <div className="mt-3 flex justify-end">
+              <button
+                onClick={handleTriggerTestNotification}
+                disabled={testNotificationArmed}
+                className="px-3 py-1.5 rounded-lg text-xs border transition-colors disabled:opacity-50"
+                style={{ borderColor: 'var(--zen-border)', color: 'var(--zen-text-secondary)' }}
+              >
+                {testNotificationArmed ? 'Sending in 5s…' : 'Temp test: email in 5s'}
               </button>
             </div>
             <div className="flex flex-wrap gap-2 mt-3">
@@ -840,6 +982,13 @@ export default function Dashboard() {
   if (viewState === 'results' && results) {
     return (
       <>
+        {inAppNotification && (
+          <div className="fixed top-24 right-6 z-[120] max-w-sm rounded-xl border px-4 py-3 shadow-xl"
+            style={{ background: 'var(--zen-surface-solid)', borderColor: 'var(--zen-border)', color: 'var(--zen-text)' }}
+          >
+            <p className="text-sm font-medium">{inAppNotification}</p>
+          </div>
+        )}
         <ResultsView
           results={results}
           onReset={handleReset}
@@ -847,6 +996,7 @@ export default function Dashboard() {
           onLogout={handleLogout}
           onOpenNotifications={handleOpenNotifications}
           notificationCount={scheduledNotifications.length}
+          uiLanguage={uiLanguage}
           onViewReport={(report: any) => {
             setResults(report);
           }}
@@ -1002,7 +1152,14 @@ export default function Dashboard() {
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.3 }}
               >
-                <UploadPanel onAnalyze={handleAnalyze} />
+                <UploadPanel
+                  onAnalyze={handleAnalyze}
+                  selectedLanguage={uiLanguage}
+                  onLanguageChange={(language) => {
+                    setUiLanguage(language as UiLanguage);
+                    localStorage.setItem('clarimed_ui_language', language);
+                  }}
+                />
               </motion.div>
             )}
 
@@ -1014,7 +1171,7 @@ export default function Dashboard() {
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.3 }}
               >
-                <LoadingSequence />
+                <LoadingSequence uiLanguage={uiLanguage} />
               </motion.div>
             )}
           </AnimatePresence>

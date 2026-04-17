@@ -3,6 +3,20 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+const getTestsText = (language: string, key: string) => {
+  const copy: Record<string, Record<string, string>> = {
+    noTests: { English: 'No test results to display.', Hindi: 'दिखाने के लिए कोई टेस्ट परिणाम नहीं है।', Marathi: 'दाखवण्यासाठी कोणतेही चाचणी निकाल नाहीत.', Tamil: 'காட்டுவதற்கு பரிசோதனை முடிவுகள் இல்லை.', Telugu: 'చూపించడానికి టెస్ట్ ఫలితాలు లేవు.', Bengali: 'দেখানোর মতো কোনো টেস্ট ফলাফল নেই।' },
+    whyMatters: { English: 'Why this matters →', Hindi: 'यह क्यों महत्वपूर्ण है →', Marathi: 'हे का महत्त्वाचे आहे →', Tamil: 'இது ஏன் முக்கியம் →', Telugu: 'ఇది ఎందుకు ముఖ్యము →', Bengali: 'এটি কেন গুরুত্বপূর্ণ →' },
+    withinRange: { English: 'Within expected range', Hindi: 'अपेक्षित सीमा में', Marathi: 'अपेक्षित मर्यादेत', Tamil: 'எதிர்பார்த்த வரம்பில்', Telugu: 'అంచనా పరిధిలో', Bengali: 'প্রত্যাশিত সীমার মধ্যে' },
+    belowRange: { English: 'Below expected range', Hindi: 'अपेक्षित सीमा से कम', Marathi: 'अपेक्षित मर्यादेपेक्षा कमी', Tamil: 'எதிர்பார்த்த வரம்புக்கு கீழே', Telugu: 'అంచనా పరిధి కంటే తక్కువ', Bengali: 'প্রত্যাশিত সীমার নিচে' },
+    aboveRange: { English: 'Above expected range', Hindi: 'अपेक्षित सीमा से अधिक', Marathi: 'अपेक्षित मर्यादेपेक्षा जास्त', Tamil: 'எதிர்பார்த்த வரம்புக்கு மேலே', Telugu: 'అంచనా పరిధి కంటే ఎక్కువ', Bengali: 'প্রত্যাশিত সীমার উপরে' },
+    outsideRange: { English: 'Outside expected range', Hindi: 'अपेक्षित सीमा के बाहर', Marathi: 'अपेक्षित मर्यादेबाहेर', Tamil: 'எதிர்பார்த்த வரம்பிற்கு வெளியே', Telugu: 'అంచనా పరిధికి బయట', Bengali: 'প্রত্যাশিত সীমার বাইরে' },
+    ref: { English: 'Ref', Hindi: 'संदर्भ', Marathi: 'संदर्भ', Tamil: 'குறிப்பு', Telugu: 'సూచన', Bengali: 'রেফ' },
+    noExplanation: { English: 'No additional explanation available.', Hindi: 'कोई अतिरिक्त विवरण उपलब्ध नहीं है।', Marathi: 'अतिरिक्त स्पष्टीकरण उपलब्ध नाही.', Tamil: 'கூடுதல் விளக்கம் இல்லை.', Telugu: 'అదనపు వివరణ అందుబాటులో లేదు.', Bengali: 'অতিরিক্ত ব্যাখ্যা উপলব্ধ নেই।' },
+  };
+  return copy[key]?.[language] || copy[key]?.English || key;
+};
+
 /* Maps technical test names → human-readable labels */
 const HUMAN_NAMES: Record<string, string> = {
   'hemoglobin': 'Energy Levels', 'rbc': 'Red Blood Cell Count', 'wbc': 'Immune Defense',
@@ -96,11 +110,11 @@ function getCompactValue(value: unknown): string {
   return words.slice(0, 8).join(' ');
 }
 
-function getRangeLabel(status: string): string {
-  if (status === 'normal') return 'Within expected range';
-  if (status.includes('low')) return 'Below expected range';
-  if (status.includes('high')) return 'Above expected range';
-  return 'Outside expected range';
+function getRangeLabel(status: string, language: string): string {
+  if (status === 'normal') return getTestsText(language, 'withinRange');
+  if (status.includes('low')) return getTestsText(language, 'belowRange');
+  if (status.includes('high')) return getTestsText(language, 'aboveRange');
+  return getTestsText(language, 'outsideRange');
 }
 
 function resolveMarkerPosition(test: any): number {
@@ -121,7 +135,7 @@ function resolveMarkerPosition(test: any): number {
   return Math.min(100, Math.max(0, markerPos));
 }
 
-export default function HumanReadableTests({ tests }: { tests: any[] }) {
+export default function HumanReadableTests({ tests, uiLanguage = 'English' }: { tests: any[]; uiLanguage?: string }) {
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
 
@@ -129,7 +143,7 @@ export default function HumanReadableTests({ tests }: { tests: any[] }) {
     return (
       <div className="zen-glass-solid p-6">
         <p style={{ color: 'var(--zen-text-muted)', fontSize: '0.875rem' }}>
-          No test results to display.
+          {getTestsText(uiLanguage, 'noTests')}
         </p>
       </div>
     );
@@ -164,7 +178,7 @@ export default function HumanReadableTests({ tests }: { tests: any[] }) {
           >
             {/* Tooltip */}
             {isHovered && !isExpanded && (
-              <div className="zen-tooltip">Why this matters →</div>
+              <div className="zen-tooltip">{getTestsText(uiLanguage, 'whyMatters')}</div>
             )}
 
             <div className="p-5">
@@ -210,10 +224,10 @@ export default function HumanReadableTests({ tests }: { tests: any[] }) {
                 </div>
               </div>
               <p className="text-[11px] mt-1" style={{ color: 'var(--zen-text-muted)' }}>
-                {getRangeLabel(test.status)}
+                {getRangeLabel(test.status, uiLanguage)}
               </p>
               <p className="text-xs mt-1.5" style={{ color: 'var(--zen-text-faint)' }}>
-                Ref: {test.reference_range || '—'}
+                {getTestsText(uiLanguage, 'ref')}: {test.reference_range || '—'}
               </p>
             </div>
 
@@ -229,7 +243,7 @@ export default function HumanReadableTests({ tests }: { tests: any[] }) {
                 >
                   <div className="px-5 pb-5 pt-2" style={{ borderTop: '1px solid var(--zen-border)' }}>
                     <p className="text-sm leading-relaxed" style={{ color: 'var(--zen-text-secondary)' }}>
-                      {test.explanation || 'No additional explanation available.'}
+                      {test.explanation || getTestsText(uiLanguage, 'noExplanation')}
                     </p>
                   </div>
                 </motion.div>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Calendar, FileText, Download, BarChart2, Loader2, Check, Eye, Trash2, ArrowLeft, TrendingUp, ShieldAlert, HeartPulse } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import { apiUrl } from '../../lib/api';
@@ -41,22 +41,25 @@ export default function PastReportsTab({ userEmail, onViewReport }: PastReportsT
   const [isCompareLoading, setIsCompareLoading] = useState(false);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [comparePdfLoading, setComparePdfLoading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const fetchReports = async () => {
+    try {
+      const res = await fetch(apiUrl(`/reports/${encodeURIComponent(userEmail)}`));
+      if (res.ok) {
+        const data = await res.json();
+        setReports(data.reports || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch reports:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Fetch reports on mount
   useEffect(() => {
-    async function fetchReports() {
-      try {
-        const res = await fetch(apiUrl(`/reports/${encodeURIComponent(userEmail)}`));
-        if (res.ok) {
-          const data = await res.json();
-          setReports(data.reports || []);
-        }
-      } catch (err) {
-        console.error('Failed to fetch reports:', err);
-      } finally {
-        setIsLoading(false);
-      }
-    }
+    setIsLoading(true);
     fetchReports();
   }, [userEmail]);
 
@@ -154,6 +157,30 @@ export default function PastReportsTab({ userEmail, onViewReport }: PastReportsT
       console.error('Comparison PDF error:', err);
     } finally {
       setTimeout(() => setComparePdfLoading(false), 1500);
+    }
+  };
+
+  const handleDeleteReport = async (report: any) => {
+    const confirmed = window.confirm('Delete this report permanently? This cannot be undone.');
+    if (!confirmed) return;
+
+    setDeletingId(report.id);
+    try {
+      const res = await fetch(
+        apiUrl(`/report/${encodeURIComponent(report.id)}?user_email=${encodeURIComponent(userEmail)}`),
+        { method: 'DELETE' }
+      );
+
+      if (!res.ok) {
+        throw new Error('Failed to delete report');
+      }
+
+      setReports(prev => prev.filter(r => r.id !== report.id));
+      setSelectedForCompare(prev => prev.filter(id => id !== report.id));
+    } catch (err) {
+      console.error('Delete report error:', err);
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -444,6 +471,18 @@ export default function PastReportsTab({ userEmail, onViewReport }: PastReportsT
                     <><Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> Downloading…</>
                   ) : (
                     <><Download className="w-3.5 h-3.5 mr-1" /> Download PDF</>
+                  )}
+                </button>
+                <button
+                  onClick={() => handleDeleteReport(report)}
+                  disabled={deletingId === report.id}
+                  className="zen-btn-ghost flex items-center disabled:opacity-50"
+                  style={{ fontSize: '0.7rem', padding: '6px 12px' }}
+                >
+                  {deletingId === report.id ? (
+                    <><Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> Deleting…</>
+                  ) : (
+                    <><Trash2 className="w-3.5 h-3.5 mr-1" /> Delete</>
                   )}
                 </button>
               </div>

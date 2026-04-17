@@ -129,6 +129,7 @@ def _serialize_reminder(row: Dict[str, Any]) -> Dict[str, Any]:
     created_at = row.get("created_at")
     due_at = row.get("due_at")
     notification_sent_at = row.get("notification_sent_at")
+    email_sent_at = row.get("email_sent_at")
     return {
         "id": row.get("_id"),
         "user_email": row.get("user_email"),
@@ -140,6 +141,7 @@ def _serialize_reminder(row: Dict[str, Any]) -> Dict[str, Any]:
         "status": row.get("status", "scheduled"),
         "channel": row.get("channel", "in_app"),
         "notification_sent_at": _to_iso_utc(notification_sent_at),
+        "email_sent_at": _to_iso_utc(email_sent_at),
     }
 
 
@@ -227,6 +229,18 @@ def report_belongs_to_user(report_id: str, user_email: str) -> bool:
     return row is not None
 
 
+def delete_report_for_user(report_id: str, user_email: str) -> bool:
+    reports_collection = _get_collection()
+    reminders_collection = _get_reminders_collection()
+
+    delete_result = reports_collection.delete_one({"_id": report_id, "user_email": user_email})
+    if delete_result.deleted_count <= 0:
+        return False
+
+    reminders_collection.delete_many({"report_id": report_id, "user_email": user_email})
+    return True
+
+
 def save_test_reminder(
     user_email: str,
     remind_in_days: int,
@@ -249,6 +263,7 @@ def save_test_reminder(
         "status": "scheduled",
         "channel": "in_app",
         "notification_sent_at": None,
+        "email_sent_at": None,
     }
 
     collection = _get_reminders_collection()
@@ -285,8 +300,8 @@ def get_due_reminders_by_user(user_email: str) -> List[Dict[str, Any]]:
             "status": "scheduled",
             "due_at": {"$lte": now_utc},
             "$or": [
-                {"notification_sent_at": None},
-                {"notification_sent_at": {"$exists": False}},
+                {"email_sent_at": None},
+                {"email_sent_at": {"$exists": False}},
             ],
         }
     ).sort("due_at", ASCENDING)
@@ -311,6 +326,26 @@ def mark_reminder_as_notified(reminder_id: str, user_email: str) -> bool:
         {
             "$set": {
                 "notification_sent_at": datetime.now(timezone.utc),
+            }
+        },
+    )
+    return result.modified_count > 0
+
+
+def mark_reminder_as_emailed(reminder_id: str, user_email: str) -> bool:
+    collection = _get_reminders_collection()
+    result = collection.update_one(
+        {
+            "_id": reminder_id,
+            "user_email": user_email,
+            "$or": [
+                {"email_sent_at": None},
+                {"email_sent_at": {"$exists": False}},
+            ],
+        },
+        {
+            "$set": {
+                "email_sent_at": datetime.now(timezone.utc),
             }
         },
     )
