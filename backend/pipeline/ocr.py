@@ -1,6 +1,7 @@
 from __future__ import annotations
 import io
 import os
+import time
 import pypdf
 from dataclasses import dataclass, field
 from loguru import logger
@@ -26,6 +27,20 @@ class DocumentExtractor:
         if not self.ocr_model:
             raise RuntimeError("GEMINI_OCR_MODEL is not set in environment")
         self.client = genai.Client(api_key=self.api_key) if self.api_key else None
+        self.retry_delay_seconds = max(0.0, float(os.environ.get("OCR_RETRY_DELAY_SECONDS", "1.0")))
+
+    def _is_transient_ocr_error(self, error_text: str) -> bool:
+        normalized = (error_text or "").lower()
+        transient_tokens = [
+            "503",
+            "unavailable",
+            "high demand",
+            "rate limit",
+            "resource exhausted",
+            "deadline exceeded",
+            "timeout",
+        ]
+        return any(token in normalized for token in transient_tokens)
 
     def _extract_pdf_text(self, data: bytes) -> ExtractionResult:
         try:
@@ -54,27 +69,37 @@ class DocumentExtractor:
             "Return plain text only. Preserve numbers, units, ranges, and test names exactly."
         )
 
-        try:
-            response = self.client.models.generate_content(
-                model=self.ocr_model,
-                contents=[
-                    types.Content(
-                        role="user",
-                        parts=[
-                            types.Part.from_text(text=prompt),
-                            types.Part.from_bytes(data=data, mime_type=mime_type),
-                        ],
+        attempt = 0
+        while True:
+            attempt += 1
+            try:
+                response = self.client.models.generate_content(
+                    model=self.ocr_model,
+                    contents=[
+                        types.Content(
+                            role="user",
+                            parts=[
+                                types.Part.from_text(text=prompt),
+                                types.Part.from_bytes(data=data, mime_type=mime_type),
+                            ],
+                        )
+                    ],
+                    config=types.GenerateContentConfig(temperature=0),
+                )
+                text = (response.text or "").strip()
+                if not text:
+                    return ExtractionResult("", "gemini_ocr", 0.0, ["Could not extract text from image."])
+                return ExtractionResult(text, "gemini_ocr", 0.9)
+            except Exception as e:
+                last_error = str(e)
+                if self._is_transient_ocr_error(last_error):
+                    logger.warning(
+                        f"Image OCR transient failure (attempt {attempt}). Retrying in {self.retry_delay_seconds}s: {last_error}"
                     )
-                ],
-                config=types.GenerateContentConfig(temperature=0),
-            )
-            text = (response.text or "").strip()
-            if not text:
-                return ExtractionResult("", "gemini_ocr", 0.0, ["Could not extract text from image."])
-            return ExtractionResult(text, "gemini_ocr", 0.9)
-        except Exception as e:
-            logger.error(f"Image OCR failed: {e}")
-            return ExtractionResult("", "error", 0.0, [str(e)])
+                    time.sleep(self.retry_delay_seconds)
+                    continue
+                logger.error(f"Image OCR failed: {last_error}")
+                return ExtractionResult("", "error", 0.0, [last_error or "Image OCR failed."])
 
     def extract_from_bytes(self, data: bytes, mime_type: str, filename: str = "") -> ExtractionResult:
         normalized_mime = (mime_type or "").lower()

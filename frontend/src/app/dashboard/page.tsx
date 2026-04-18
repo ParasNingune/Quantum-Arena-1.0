@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Copy, CheckCircle, Loader2, AlertTriangle, ChevronDown, Download, FileText, Clock, Bell } from 'lucide-react';
+import { Copy, CheckCircle, Loader2, AlertTriangle, ChevronDown, Download, FileText, Clock, Bell, Volume2, VolumeX } from 'lucide-react';
 import HealthScoreGauge from '../../components/dashboard/HealthScoreGauge';
 import HumanReadableTests from '../../components/dashboard/HumanReadableTests';
 import TrendRibbon from '../../components/dashboard/TrendRibbon';
@@ -36,6 +36,17 @@ const UI_TEXT: Record<string, Record<string, string>> = {
   notifications: { English: 'Notifications', Hindi: 'सूचनाएँ', Marathi: 'सूचना', Tamil: 'அறிவிப்புகள்', Telugu: 'నోటిఫికేషన్లు', Bengali: 'নোটিফিকেশন' },
   logout: { English: 'Log Out', Hindi: 'लॉग आउट', Marathi: 'लॉग आउट', Tamil: 'வெளியேறு', Telugu: 'లాగ్ అవుట్', Bengali: 'লগ আউট' },
   explainDisease: { English: 'Explain this disease', Hindi: 'इस बीमारी को समझाएँ', Marathi: 'हा आजार समजावून सांगा', Tamil: 'இந்த நோயை விளக்கவும்', Telugu: 'ఈ వ్యాధిని వివరించండి', Bengali: 'এই রোগটি ব্যাখ্যা করুন' },
+  readAloud: { English: 'Read Aloud', Hindi: 'ज़ोर से पढ़ें', Marathi: 'मोठ्याने वाचा', Tamil: 'உரையை வாசிக்கவும்', Telugu: 'జోరుగా చదవండి', Bengali: 'উচ্চস্বরে পড়ুন' },
+  stopReading: { English: 'Stop Reading', Hindi: 'पढ़ना बंद करें', Marathi: 'वाचन थांबवा', Tamil: 'வாசிப்பை நிறுத்து', Telugu: 'చదవడం ఆపు', Bengali: 'পড়া বন্ধ করুন' },
+};
+
+const SPEECH_LANG_MAP: Record<string, string> = {
+  English: 'en-US',
+  Hindi: 'hi-IN',
+  Marathi: 'mr-IN',
+  Tamil: 'ta-IN',
+  Telugu: 'te-IN',
+  Bengali: 'bn-IN',
 };
 
 const t = (language: string, key: string, fallback?: string) => {
@@ -105,7 +116,7 @@ const getTabs = (uiLanguage: string) => [
 /* ──────────────────────────────────────────── */
 /* RESULTS VIEW — Zen Medical Bento Grid        */
 /* ──────────────────────────────────────────── */
-function ResultsView({ results, onReset, user, onLogout, onOpenNotifications, notificationCount, onViewReport, uiLanguage }: { results: any; onReset: () => void; user: { name: string; email: string }; onLogout: () => void; onOpenNotifications: () => void; notificationCount: number; onViewReport?: (r: any) => void; uiLanguage: string }) {
+function ResultsView({ results, onReset, user, onLogout, onOpenNotifications, notificationCount, onViewReport, uiLanguage, onToggleReadAloud, isReadingAloud }: { results: any; onReset: () => void; user: { name: string; email: string }; onLogout: () => void; onOpenNotifications: () => void; notificationCount: number; onViewReport?: (r: any) => void; uiLanguage: string; onToggleReadAloud: () => void; isReadingAloud: boolean }) {
   const allTests = results.all_tests || results.tests || [];
   const healthScore = Number(results?.health_score ?? 0);
   const doctorQuestions = results.doctor_questions || [];
@@ -172,6 +183,25 @@ function ResultsView({ results, onReset, user, onLogout, onOpenNotifications, no
     });
   };
 
+  const handleExplainBiomarker = (test: any) => {
+    if (!test) return;
+
+    const prompt = [
+      `Biomarker: ${test.test_name || 'Unknown test'}.`,
+      `Value: ${test.value ?? 'N/A'} ${test.unit || ''}`.trim(),
+      `Status: ${test.status || 'N/A'}.`,
+      `Reference range: ${test.reference_range || 'N/A'}.`,
+      test.explanation ? `Current explanation: ${test.explanation}` : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
+
+    setExplainRequest({
+      id: Date.now(),
+      content: `Please explain this biomarker in simple terms for a patient in ${uiLanguage}: ${prompt}`,
+    });
+  };
+
   return (
     <div className="zen-results relative">
       <ChatWidget analysisData={results} explainRequest={explainRequest} uiLanguage={uiLanguage} />
@@ -213,6 +243,10 @@ function ResultsView({ results, onReset, user, onLogout, onOpenNotifications, no
           <button onClick={onOpenNotifications} className="zen-btn-ghost" style={{ fontSize: '0.8rem', padding: '8px 12px' }}>
             <Bell className="w-4 h-4" />
             {t(uiLanguage, 'notifications', 'Notifications')} ({notificationCount})
+          </button>
+          <button onClick={onToggleReadAloud} className="zen-btn-ghost" style={{ fontSize: '0.8rem', padding: '8px 12px' }}>
+            {isReadingAloud ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+            {isReadingAloud ? t(uiLanguage, 'stopReading', 'Stop Reading') : t(uiLanguage, 'readAloud', 'Read Aloud')}
           </button>
           <button onClick={onLogout} className="zen-btn-ghost" style={{ fontSize: '0.8rem', padding: '8px 16px' }}>
             {t(uiLanguage, 'logout', 'Log Out')}
@@ -316,7 +350,7 @@ function ResultsView({ results, onReset, user, onLogout, onOpenNotifications, no
                   <p className="text-sm mb-4" style={{ color: 'var(--zen-text-muted)' }}>
                     Tap any card to see a plain-English explanation
                   </p>
-                  <HumanReadableTests tests={allTests} uiLanguage={uiLanguage} />
+                  <HumanReadableTests tests={allTests} uiLanguage={uiLanguage} onExplainTest={handleExplainBiomarker} />
                 </div>
               </section>
             </motion.div>
@@ -464,8 +498,69 @@ export default function Dashboard() {
   const [quickReminderMessage, setQuickReminderMessage] = useState<string | null>(null);
   const [testNotificationArmed, setTestNotificationArmed] = useState(false);
   const [inAppNotification, setInAppNotification] = useState<string | null>(null);
+  const [isReadingAloud, setIsReadingAloud] = useState(false);
+  const [readAloudError, setReadAloudError] = useState<string | null>(null);
   const dueReminderCheckInFlightRef = useRef(false);
   const [uiLanguage, setUiLanguage] = useState<UiLanguage>('English');
+
+  const stopReadAloud = () => {
+    if (typeof window === 'undefined') return;
+    if (!('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    setIsReadingAloud(false);
+  };
+
+  const handleToggleReadAloud = () => {
+    if (typeof window === 'undefined') return;
+    if (!('speechSynthesis' in window) || !('SpeechSynthesisUtterance' in window)) {
+      setReadAloudError('Read aloud is not supported in this browser.');
+      return;
+    }
+
+    const speechSynthesisApi = window.speechSynthesis;
+    if (isReadingAloud || speechSynthesisApi.speaking) {
+      stopReadAloud();
+      return;
+    }
+
+    const pageText = (document.querySelector('main')?.textContent || document.body.textContent || '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (!pageText) {
+      setReadAloudError('No readable text found on this page.');
+      return;
+    }
+
+    const utterance = new SpeechSynthesisUtterance(pageText.slice(0, 15000));
+    utterance.lang = SPEECH_LANG_MAP[uiLanguage] || 'en-US';
+    utterance.rate = 1;
+    utterance.pitch = 1;
+    utterance.onend = () => setIsReadingAloud(false);
+    utterance.onerror = () => {
+      setIsReadingAloud(false);
+      setReadAloudError('Read aloud failed. Please try again.');
+    };
+
+    setReadAloudError(null);
+    setIsReadingAloud(true);
+    speechSynthesisApi.cancel();
+    speechSynthesisApi.speak(utterance);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!readAloudError) return;
+    const timer = window.setTimeout(() => setReadAloudError(null), 3500);
+    return () => window.clearTimeout(timer);
+  }, [readAloudError]);
 
   const fetchScheduledNotifications = async (email?: string) => {
     const normalizedEmail = (email || user?.email || '').trim().toLowerCase();
@@ -989,6 +1084,13 @@ export default function Dashboard() {
             <p className="text-sm font-medium">{inAppNotification}</p>
           </div>
         )}
+        {readAloudError && (
+          <div className="fixed top-24 left-6 z-[120] max-w-sm rounded-xl border px-4 py-3 shadow-xl"
+            style={{ background: 'var(--zen-surface-solid)', borderColor: 'var(--zen-border)', color: 'var(--zen-text)' }}
+          >
+            <p className="text-sm font-medium">{readAloudError}</p>
+          </div>
+        )}
         <ResultsView
           results={results}
           onReset={handleReset}
@@ -997,6 +1099,8 @@ export default function Dashboard() {
           onOpenNotifications={handleOpenNotifications}
           notificationCount={scheduledNotifications.length}
           uiLanguage={uiLanguage}
+          onToggleReadAloud={handleToggleReadAloud}
+          isReadingAloud={isReadingAloud}
           onViewReport={(report: any) => {
             setResults(report);
           }}
@@ -1116,6 +1220,12 @@ export default function Dashboard() {
               Notifications ({scheduledNotifications.length})
             </button>
             <button
+              onClick={handleToggleReadAloud}
+              className="text-sm border border-white/20 hover:bg-white/10 px-4 py-2 rounded-lg transition-colors"
+            >
+              {isReadingAloud ? t(uiLanguage, 'stopReading', 'Stop Reading') : t(uiLanguage, 'readAloud', 'Read Aloud')}
+            </button>
+            <button
               onClick={handleLogout}
               className="text-sm border border-white/20 hover:bg-white/10 px-4 py-2 rounded-lg transition-colors ml-4"
             >
@@ -1138,6 +1248,15 @@ export default function Dashboard() {
             <div className="flex items-center">
               <AlertTriangle className="w-5 h-5 mr-3" />
               <span className="text-sm">{errorBanner}</span>
+            </div>
+          </div>
+        )}
+
+        {readAloudError && viewState !== 'results' && (
+          <div className="max-w-xl mx-auto mt-4 flex justify-between items-center bg-red-500/10 border border-red-500/30 px-6 py-4 rounded-xl text-red-300">
+            <div className="flex items-center">
+              <AlertTriangle className="w-5 h-5 mr-3" />
+              <span className="text-sm">{readAloudError}</span>
             </div>
           </div>
         )}

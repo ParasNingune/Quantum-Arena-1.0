@@ -13,6 +13,7 @@ const getTestsText = (language: string, key: string) => {
     outsideRange: { English: 'Outside expected range', Hindi: 'अपेक्षित सीमा के बाहर', Marathi: 'अपेक्षित मर्यादेबाहेर', Tamil: 'எதிர்பார்த்த வரம்பிற்கு வெளியே', Telugu: 'అంచనా పరిధికి బయట', Bengali: 'প্রত্যাশিত সীমার বাইরে' },
     ref: { English: 'Ref', Hindi: 'संदर्भ', Marathi: 'संदर्भ', Tamil: 'குறிப்பு', Telugu: 'సూచన', Bengali: 'রেফ' },
     noExplanation: { English: 'No additional explanation available.', Hindi: 'कोई अतिरिक्त विवरण उपलब्ध नहीं है।', Marathi: 'अतिरिक्त स्पष्टीकरण उपलब्ध नाही.', Tamil: 'கூடுதல் விளக்கம் இல்லை.', Telugu: 'అదనపు వివరణ అందుబాటులో లేదు.', Bengali: 'অতিরিক্ত ব্যাখ্যা উপলব্ধ নেই।' },
+    explainInChat: { English: 'Explain in Chat', Hindi: 'चैट में समझाएँ', Marathi: 'चॅटमध्ये समजावून सांगा', Tamil: 'அரட்டையில் விளக்கவும்', Telugu: 'చాట్‌లో వివరించండి', Bengali: 'চ্যাটে ব্যাখ্যা করুন' },
   };
   return copy[key]?.[language] || copy[key]?.English || key;
 };
@@ -135,7 +136,7 @@ function resolveMarkerPosition(test: any): number {
   return Math.min(100, Math.max(0, markerPos));
 }
 
-export default function HumanReadableTests({ tests, uiLanguage = 'English' }: { tests: any[]; uiLanguage?: string }) {
+export default function HumanReadableTests({ tests, uiLanguage = 'English', onExplainTest }: { tests: any[]; uiLanguage?: string; onExplainTest?: (test: any) => void }) {
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
 
@@ -229,6 +230,21 @@ export default function HumanReadableTests({ tests, uiLanguage = 'English' }: { 
               <p className="text-xs mt-1.5" style={{ color: 'var(--zen-text-faint)' }}>
                 {getTestsText(uiLanguage, 'ref')}: {test.reference_range || '—'}
               </p>
+
+              {onExplainTest && (
+                <div className="mt-3">
+                  <button
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onExplainTest(test);
+                    }}
+                    className="zen-btn-ghost"
+                    style={{ fontSize: '0.7rem', padding: '6px 10px' }}
+                  >
+                    {getTestsText(uiLanguage, 'explainInChat')}
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Expanded explanation */}

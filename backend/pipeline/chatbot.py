@@ -32,7 +32,7 @@ class ChatManager:
 
     def chat(self, user_message: str, history: list, analysis_data: dict) -> dict:
         if not self.client: return {"error": "No API Key"}
-        
+
         # Prepare a slimmed down context to save tokens, or just pass the whole dict
         context_str = json.dumps(analysis_data, indent=2)[: self.max_context_chars]
 

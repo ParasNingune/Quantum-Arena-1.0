@@ -233,6 +233,9 @@ async def analyze_report(
 
         if not text.strip():
             warning = extraction.warnings[0] if extraction.warnings else "Could not extract text from uploaded file."
+            transient_tokens = ["temporarily unavailable", "high demand", "unavailable", "503", "rate limit"]
+            if any(token in warning.lower() for token in transient_tokens):
+                raise HTTPException(status_code=503, detail="OCR service is currently under high load. Please retry in a few moments.")
             raise HTTPException(status_code=422, detail=warning)
 
         # Map gender string to M/F for the analyzer

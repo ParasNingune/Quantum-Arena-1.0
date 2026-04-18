@@ -205,6 +205,7 @@ class MedicalAnalyzer:
     if "429" in error_text:
       return 429
     if "503" in error_text or "UNAVAILABLE" in error_text:
+      print(error_text)
       return 503
     if "504" in error_text:
       return 504
