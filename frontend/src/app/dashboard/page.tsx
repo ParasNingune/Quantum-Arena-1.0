@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, type RefObject } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -17,7 +17,6 @@ import PathToNormal from '../../components/dashboard/PathToNormal';
 import UploadPanel from '../../components/dashboard/UploadPanel';
 import ChatWidget from '../../components/dashboard/ChatWidget';
 import PastReportsTab from '../../components/dashboard/PastReportsTab';
-import CanvasSequence from "@/components/CanvasSequence";
 import { apiUrl } from '../../lib/api';
 
 type UiLanguage = 'English' | 'Hindi' | 'Marathi' | 'Tamil' | 'Telugu' | 'Bengali';
@@ -47,6 +46,39 @@ const SPEECH_LANG_MAP: Record<string, string> = {
   Tamil: 'ta-IN',
   Telugu: 'te-IN',
   Bengali: 'bn-IN',
+};
+
+const isElementVisibleForReadAloud = (element: HTMLElement | null): boolean => {
+  if (!element) return false;
+  if (element.getAttribute('aria-hidden') === 'true') return false;
+  const style = window.getComputedStyle(element);
+  if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) return false;
+  return true;
+};
+
+const collectVisibleTextForReadAloud = (root: HTMLElement | null): string => {
+  if (!root || typeof window === 'undefined') return '';
+
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const chunks: string[] = [];
+
+  while (walker.nextNode()) {
+    const textNode = walker.currentNode as Text;
+    const parent = textNode.parentElement;
+    if (!parent) continue;
+
+    const tag = parent.tagName.toLowerCase();
+    if (['script', 'style', 'noscript'].includes(tag)) continue;
+    if (parent.closest('[aria-hidden="true"]')) continue;
+    if (parent.closest('[data-read-aloud-ignore="true"]')) continue;
+    if (!isElementVisibleForReadAloud(parent)) continue;
+
+    const cleaned = textNode.textContent?.replace(/\s+/g, ' ').trim();
+    if (!cleaned) continue;
+    chunks.push(cleaned);
+  }
+
+  return chunks.join(' ').replace(/\s+/g, ' ').trim();
 };
 
 const t = (language: string, key: string, fallback?: string) => {
@@ -116,7 +148,7 @@ const getTabs = (uiLanguage: string) => [
 /* ──────────────────────────────────────────── */
 /* RESULTS VIEW — Zen Medical Bento Grid        */
 /* ──────────────────────────────────────────── */
-function ResultsView({ results, onReset, user, onLogout, onOpenNotifications, notificationCount, onViewReport, uiLanguage, onToggleReadAloud, isReadingAloud }: { results: any; onReset: () => void; user: { name: string; email: string }; onLogout: () => void; onOpenNotifications: () => void; notificationCount: number; onViewReport?: (r: any) => void; uiLanguage: string; onToggleReadAloud: () => void; isReadingAloud: boolean }) {
+function ResultsView({ results, onReset, user, onLogout, onOpenNotifications, notificationCount, onViewReport, uiLanguage, onToggleReadAloud, isReadingAloud, readAloudScopeRef }: { results: any; onReset: () => void; user: { name: string; email: string }; onLogout: () => void; onOpenNotifications: () => void; notificationCount: number; onViewReport?: (r: any) => void; uiLanguage: string; onToggleReadAloud: () => void; isReadingAloud: boolean; readAloudScopeRef?: RefObject<HTMLDivElement | null> }) {
   const allTests = results.all_tests || results.tests || [];
   const healthScore = Number(results?.health_score ?? 0);
   const doctorQuestions = results.doctor_questions || [];
@@ -203,7 +235,7 @@ function ResultsView({ results, onReset, user, onLogout, onOpenNotifications, no
   };
 
   return (
-    <div className="zen-results relative">
+    <div className="zen-results relative" ref={readAloudScopeRef} data-read-aloud-scope="results">
       <ChatWidget analysisData={results} explainRequest={explainRequest} uiLanguage={uiLanguage} />
       {/* Light Navbar */}
       <nav
@@ -288,7 +320,7 @@ function ResultsView({ results, onReset, user, onLogout, onOpenNotifications, no
               transition={{ duration: 0.3 }}
             >
               <section className="mb-8">
-                <div className="zen-glass-solid p-6" style={{ borderRadius: '16px' }}>
+                <div className="zen-glass-solid zen-animate-in p-6" style={{ borderRadius: '16px' }}>
                   <h3 className="zen-readable-title mb-1.5">How to read this report</h3>
                   <p className="zen-readable-body">
                     Start with your Health Score, then review any biomarker marked as "slightly off" or "needs attention". Use Action Plan for practical next steps and Questions for Your Doctor for your appointment.
@@ -297,7 +329,7 @@ function ResultsView({ results, onReset, user, onLogout, onOpenNotifications, no
               </section>
 
               <section className="mb-8">
-                <div className="zen-glass-solid p-6" style={{ borderRadius: '16px' }}>
+                <div className="zen-glass-solid zen-animate-in p-6" style={{ borderRadius: '16px' }}>
                   <div className="flex items-center justify-between gap-3 mb-2">
                     <h3 className="zen-readable-title">AI Predicted Condition</h3>
                     {predictedCondition && (
@@ -318,7 +350,7 @@ function ResultsView({ results, onReset, user, onLogout, onOpenNotifications, no
                       <div className="mt-4 flex justify-center">
                         <button
                           onClick={handleExplainDisease}
-                          className="zen-btn-ghost"
+                          className="zen-btn-ghost zen-glow-hover"
                           style={{ fontSize: '0.78rem', padding: '8px 12px' }}
                         >
                           {t(uiLanguage, 'explainDisease', 'Explain this disease')}
@@ -502,6 +534,9 @@ export default function Dashboard() {
   const [readAloudError, setReadAloudError] = useState<string | null>(null);
   const dueReminderCheckInFlightRef = useRef(false);
   const [uiLanguage, setUiLanguage] = useState<UiLanguage>('English');
+  const uploadReadAloudRef = useRef<HTMLDivElement | null>(null);
+  const loadingReadAloudRef = useRef<HTMLDivElement | null>(null);
+  const resultsReadAloudRef = useRef<HTMLDivElement | null>(null);
 
   const stopReadAloud = () => {
     if (typeof window === 'undefined') return;
@@ -523,9 +558,23 @@ export default function Dashboard() {
       return;
     }
 
-    const pageText = (document.querySelector('main')?.textContent || document.body.textContent || '')
-      .replace(/\s+/g, ' ')
-      .trim();
+    let targetRoot: HTMLElement | null = null;
+    if (viewState === 'results') {
+      targetRoot = resultsReadAloudRef.current;
+    } else if (viewState === 'loading') {
+      targetRoot = loadingReadAloudRef.current;
+    } else {
+      targetRoot = uploadReadAloudRef.current;
+    }
+
+    if (!targetRoot) {
+      targetRoot = (document.querySelector('[data-read-aloud-scope="results"]') ||
+        document.querySelector('[data-read-aloud-scope="loading"]') ||
+        document.querySelector('[data-read-aloud-scope="upload"]') ||
+        document.querySelector('main')) as HTMLElement | null;
+    }
+
+    const pageText = collectVisibleTextForReadAloud(targetRoot);
 
     if (!pageText) {
       setReadAloudError('No readable text found on this page.');
@@ -648,6 +697,7 @@ export default function Dashboard() {
     formData.append('age', age);
     formData.append('gender', gender);
     formData.append('language', language);
+    if (user?.name) formData.append('patient_name', user.name);
     if (patientContext) {
       formData.append('patient_context', JSON.stringify(patientContext));
     }
@@ -1101,6 +1151,7 @@ export default function Dashboard() {
           uiLanguage={uiLanguage}
           onToggleReadAloud={handleToggleReadAloud}
           isReadingAloud={isReadingAloud}
+          readAloudScopeRef={resultsReadAloudRef}
           onViewReport={(report: any) => {
             setResults(report);
           }}
@@ -1197,11 +1248,10 @@ export default function Dashboard() {
   /* ── Upload / Loading: Dark layout preserved ── */
   return (
     <div className="min-h-screen bg-[#050B18] text-white pb-20">
-      <CanvasSequence className="pointer-events-none" />
 
       <div className="relative z-10">
         {/* NAVBAR (preserved dark) */}
-        <nav className="w-full border-b border-white/10 px-6 py-4 flex justify-between items-center bg-[#050B18]/80 backdrop-blur-md sticky top-0 z-50">
+        <nav className="w-full border-b border-white/10 px-6 py-4 flex justify-between items-center bg-[#050B18]/90 backdrop-blur-md sticky top-0 z-50">
           <Link href="/" className="font-bold text-xl tracking-tight text-white/90 hover:text-white transition-colors">
             ClariMed
           </Link>
@@ -1270,6 +1320,8 @@ export default function Dashboard() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.3 }}
+                ref={uploadReadAloudRef}
+                data-read-aloud-scope="upload"
               >
                 <UploadPanel
                   onAnalyze={handleAnalyze}
@@ -1289,6 +1341,8 @@ export default function Dashboard() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.3 }}
+                ref={loadingReadAloudRef}
+                data-read-aloud-scope="loading"
               >
                 <LoadingSequence uiLanguage={uiLanguage} />
               </motion.div>

@@ -7,6 +7,24 @@ import { apiUrl } from '../../lib/api';
 export default function DownloadPDF({ analysisData }: { analysisData: any }) {
   const [status, setStatus] = useState<'idle' | 'loading' | 'done'>('idle');
 
+  const resolvePatientName = () => {
+    const fromAnalysis = String(analysisData?.patient_name || '').trim();
+    if (fromAnalysis) return fromAnalysis;
+
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('medreport_user');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          const fromUser = String(parsed?.name || '').trim();
+          if (fromUser) return fromUser;
+        }
+      } catch {}
+    }
+
+    return 'Patient';
+  };
+
   const handleDownload = async () => {
     setStatus('loading');
     try {
@@ -15,7 +33,7 @@ export default function DownloadPDF({ analysisData }: { analysisData: any }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           analysis: analysisData,
-          patient_name: 'Patient',
+          patient_name: resolvePatientName(),
           age: analysisData.patient_age || 30,
           gender: analysisData.patient_gender || 'M',
         }),

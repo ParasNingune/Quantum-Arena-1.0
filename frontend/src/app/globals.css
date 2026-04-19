@@ -11,40 +11,40 @@
   --foreground: #ffffff;
 
   /* === Zen Medical — Light Results === */
-  --zen-bg: #F8F9FA;
-  --zen-bg-soft: #F3F5F8;
-  --zen-bg-warm: #F5F3EF;
-  --zen-surface: rgba(255, 255, 255, 0.72);
+  --zen-bg: #F6F7FF;
+  --zen-bg-soft: #EEF2FF;
+  --zen-bg-warm: #F2F7F7;
+  --zen-surface: rgba(255, 255, 255, 0.76);
   --zen-surface-solid: #FFFFFF;
-  --zen-border: rgba(0, 0, 0, 0.06);
-  --zen-border-hover: rgba(0, 0, 0, 0.12);
-  --zen-text: #1A1A2E;
-  --zen-text-secondary: #374151;
-  --zen-text-muted: #6B7280;
-  --zen-text-faint: #9CA3AF;
+  --zen-border: rgba(49, 46, 129, 0.12);
+  --zen-border-hover: rgba(49, 46, 129, 0.22);
+  --zen-text: #1F2440;
+  --zen-text-secondary: #384066;
+  --zen-text-muted: #626A8D;
+  --zen-text-faint: #8A90AD;
 
   /* === Status Pastels === */
-  --zen-normal-bg: #E6F4EA;
-  --zen-normal-text: #1E4620;
-  --zen-normal-accent: #34A853;
-  --zen-mild-bg: #FFF4E5;
-  --zen-mild-text: #663C00;
+  --zen-normal-bg: #E6FBF5;
+  --zen-normal-text: #0F4E43;
+  --zen-normal-accent: #14B8A6;
+  --zen-mild-bg: #FFF3E8;
+  --zen-mild-text: #7A3E12;
   --zen-mild-accent: #F59E0B;
-  --zen-critical-bg: #FCE8E6;
-  --zen-critical-text: #C62828;
-  --zen-critical-accent: #EF4444;
+  --zen-critical-bg: #FEECEF;
+  --zen-critical-text: #9F1239;
+  --zen-critical-accent: #F43F5E;
 
   /* === Brand === */
-  --zen-brand: #E8F0FE;
-  --zen-brand-text: #1A56DB;
-  --zen-brand-solid: #3B82F6;
-  --zen-brand-hover: #2563EB;
+  --zen-brand: #EAEAFE;
+  --zen-brand-text: #4338CA;
+  --zen-brand-solid: #6366F1;
+  --zen-brand-hover: #4F46E5;
 
   /* === Shadows (Soft Pearl) === */
-  --zen-shadow-sm: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.03);
-  --zen-shadow: 0 4px 24px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04);
-  --zen-shadow-lg: 0 8px 32px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04);
-  --zen-shadow-xl: 0 16px 48px rgba(0,0,0,0.1), 0 4px 12px rgba(0,0,0,0.05);
+  --zen-shadow-sm: 0 1px 3px rgba(79, 70, 229, 0.08), 0 1px 2px rgba(20, 184, 166, 0.06);
+  --zen-shadow: 0 6px 24px rgba(79, 70, 229, 0.12), 0 2px 8px rgba(20, 184, 166, 0.08);
+  --zen-shadow-lg: 0 12px 36px rgba(79, 70, 229, 0.16), 0 4px 14px rgba(20, 184, 166, 0.1);
+  --zen-shadow-xl: 0 18px 54px rgba(79, 70, 229, 0.2), 0 6px 18px rgba(20, 184, 166, 0.12);
 
   /* === Legacy dark tokens (for auth/upload) === */
   --navy: #1B263B;
@@ -99,10 +99,51 @@ body {
 
 .zen-results {
   --zen-nav-bg: rgba(248, 249, 250, 0.88);
-  background-color: #F8F9FA !important;
-  background-image: none !important;
+  background-color: var(--zen-bg) !important;
+  background-image:
+    radial-gradient(circle at 10% 8%, rgba(99, 102, 241, 0.16) 0%, transparent 34%),
+    radial-gradient(circle at 86% 14%, rgba(20, 184, 166, 0.14) 0%, transparent 34%),
+    radial-gradient(circle at 50% 102%, rgba(168, 85, 247, 0.1) 0%, transparent 42%);
   color: var(--zen-text);
   min-height: 100vh;
+}
+
+.zen-dark-ambient {
+  position: relative;
+  background-color: #050B18;
+  background-image:
+    radial-gradient(720px 420px at -8% -10%, rgba(99, 102, 241, 0.24) 0%, transparent 66%),
+    radial-gradient(640px 380px at 108% 0%, rgba(168, 85, 247, 0.18) 0%, transparent 62%),
+    radial-gradient(620px 360px at 50% 116%, rgba(20, 184, 166, 0.16) 0%, transparent 65%),
+    linear-gradient(180deg, #071126 0%, #050B18 52%, #040814 100%);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.zen-dark-ambient::before,
+.zen-dark-ambient::after {
+  content: "";
+  position: absolute;
+  inset: -24% -10% auto;
+  height: 70%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.zen-dark-ambient::before {
+  background: radial-gradient(circle at 18% 24%, rgba(99, 102, 241, 0.26) 0%, transparent 48%);
+  filter: blur(56px);
+  animation: zenAmbientDrift 16s ease-in-out infinite;
+}
+
+.zen-dark-ambient::after {
+  background: radial-gradient(circle at 84% 30%, rgba(20, 184, 166, 0.24) 0%, transparent 48%);
+  filter: blur(64px);
+  animation: zenAmbientDrift 19s ease-in-out infinite reverse;
+}
+
+.zen-dark-overlay {
+  background: color-mix(in srgb, #050B18 84%, transparent);
 }
 
 /* === Glassmorphism Card === */
@@ -123,17 +164,32 @@ body {
 
 /* === Solid Glass (more opaque) === */
 .zen-glass-solid {
-  background: var(--zen-surface-solid);
+  background: linear-gradient(180deg, var(--zen-surface-solid) 0%, var(--zen-bg-soft) 220%);
   border: 1px solid var(--zen-border);
   border-radius: 20px;
   box-shadow: var(--zen-shadow);
   transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
               box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1),
               border-color 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+.zen-glass-solid::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 0%, rgba(59, 130, 246, 0.08) 38%, transparent 72%);
+  transform: translateX(-120%);
+  transition: transform 0.7s ease;
+  pointer-events: none;
 }
 .zen-glass-solid:hover {
   border-color: var(--zen-border-hover);
   box-shadow: var(--zen-shadow-lg);
+  transform: translateY(-2px);
+}
+.zen-glass-solid:hover::before {
+  transform: translateX(120%);
 }
 
 /* === Status Pills === */
@@ -190,6 +246,7 @@ body {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--zen-border);
+  box-shadow: 0 6px 18px rgba(26, 26, 46, 0.04);
 }
 .zen-section-nav a {
   padding: 10px 16px;
@@ -199,6 +256,12 @@ body {
   border-bottom: 2px solid transparent;
   transition: color 0.2s, border-color 0.2s;
   white-space: nowrap;
+}
+.zen-section-nav button {
+  transition: transform 0.18s ease, color 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
+}
+.zen-section-nav button:hover {
+  transform: translateY(-1px);
 }
 .zen-section-nav a:hover,
 .zen-section-nav a.active {
@@ -263,7 +326,7 @@ body {
   justify-content: center;
   gap: 8px;
   padding: 12px 24px;
-  background: var(--zen-brand-solid);
+  background: linear-gradient(135deg, var(--zen-brand-solid) 0%, var(--zen-brand-hover) 100%);
   color: white;
   font-weight: 600;
   font-size: 0.875rem;
@@ -274,7 +337,7 @@ body {
   transition: background 0.2s, box-shadow 0.2s, transform 0.15s;
 }
 .zen-btn-primary:hover {
-  background: var(--zen-brand-hover);
+  background: linear-gradient(135deg, var(--zen-brand-hover) 0%, var(--zen-brand-solid) 100%);
   box-shadow: var(--zen-shadow);
   transform: translateY(-1px);
 }
@@ -306,6 +369,7 @@ body {
   background: var(--zen-bg-soft);
   color: var(--zen-text);
   border-color: var(--zen-border-hover);
+  transform: translateY(-1px);
 }
 
 .zen-readable-title {
@@ -328,6 +392,28 @@ body {
 }
 .animate-fade-in-up {
   animation: fadeInUp 0.4s ease forwards;
+}
+
+@keyframes zenPulseGlow {
+  0%, 100% { box-shadow: var(--zen-shadow-sm); }
+  50% { box-shadow: var(--zen-shadow-lg); }
+}
+
+@keyframes zenAmbientDrift {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(0, 18px, 0) scale(1.04);
+  }
+}
+
+.zen-glow-hover:hover {
+  animation: zenPulseGlow 1.6s ease-in-out infinite;
+}
+
+.zen-animate-in {
+  animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 /* === Horizontal scroll container === */

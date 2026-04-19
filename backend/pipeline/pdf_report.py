@@ -13,6 +13,8 @@ Install:
 from __future__ import annotations
 import io
 import os
+import re
+import html
 from datetime import datetime
 from typing import Optional
 
@@ -98,6 +100,23 @@ def _apply_unicode_font_overrides(story):
                     ("FONTNAME", (0, 0), (-1, -1), _PDF_FONT_REGULAR),
                     ("FONTNAME", (0, 0), (-1, 0), _PDF_FONT_BOLD),
                 ]))
+
+
+def _rich_text(value: str) -> str:
+    if isinstance(value, (list, tuple)):
+        raw = "\n".join(str(item or "") for item in value)
+    else:
+        raw = str(value or "")
+
+    raw = html.unescape(raw)
+    raw = raw.replace("\r\n", "\n").replace("\r", "\n")
+    raw = re.sub(r"(?i)<br\s*/?>", "\n", raw)
+    raw = re.sub(r"</?[^>]+>", " ", raw)
+
+    lines = [re.sub(r"\s+", " ", line).strip() for line in raw.split("\n")]
+    lines = [line for line in lines if line]
+    escaped_lines = [html.escape(line) for line in lines]
+    return "<br/>".join(escaped_lines)
 
 # ─────────────────────────────────────────────────────────────
 # Brand colours
@@ -352,7 +371,7 @@ def _styles():
         "pattern_name":S("pattern_name",fontSize=9,textColor=C_NAVY,
                           fontName=_PDF_FONT_BOLD, leading=13),
         "pattern_body":S("pattern_body",fontSize=8,textColor=colors.HexColor("#374151"),
-                          fontName=_PDF_FONT_REGULAR, leading=12),
+                          fontName=_PDF_FONT_REGULAR, leading=12, wordWrap="CJK", splitLongWords=True),
         "specialist_name": S("spec_name", fontSize=10, textColor=C_NAVY, fontName=_PDF_FONT_BOLD, leading=14),
         "spec_reason": S("spec_reason", fontSize=8.5, textColor=colors.HexColor("#4B5563"), fontName=_PDF_FONT_REGULAR, leading=12),
     }
@@ -776,7 +795,7 @@ def generate_pdf(
             icd   = p.get("icd10", "")
 
             sym_text  = " • ".join(syms) if syms else "See a doctor for full assessment."
-            dq_text   = "<br/>".join(f"• {q}" for q in dqs[:4])
+            dq_text   = "\n".join(f"• {q}" for q in dqs[:4]) if dqs else "• Discuss this pattern with your doctor."
             mt_text   = ", ".join(p.get("matched_tests", []))
 
             pat_rows = [
@@ -806,26 +825,26 @@ def generate_pdf(
             ]))
 
             body_rows = [
-                ["Explanation",     p.get("explanation", "")],
-                ["Watch for",       sym_text],
-                ["Ask your doctor", dq_text],
+                [Paragraph("<b>Explanation</b>", S["cell_bold"]), Paragraph(_rich_text(p.get("explanation", "")), S["pattern_body"])],
+                [Paragraph("<b>Watch for</b>", S["cell_bold"]), Paragraph(_rich_text(sym_text), S["pattern_body"])],
+                [Paragraph("<b>Ask your doctor</b>", S["cell_bold"]), Paragraph(_rich_text(dq_text), S["pattern_body"])],
             ]
             if diet:
-                body_rows.append(["Diet tip", diet])
+                body_rows.append([Paragraph("<b>Diet tip</b>", S["cell_bold"]), Paragraph(_rich_text(diet), S["pattern_body"])])
 
             pat_body = Table(body_rows, colWidths=[90, W-36*mm-90])
             pat_body.setStyle(TableStyle([
-                ("FONTNAME",      (0,0), (0,-1), "Helvetica-Bold"),
                 ("FONTSIZE",      (0,0), (-1,-1), 8),
                 ("TEXTCOLOR",     (0,0), (0,-1), C_NAVY),
                 ("TEXTCOLOR",     (1,0), (1,-1), colors.HexColor("#374151")),
                 ("TOPPADDING",    (0,0), (-1,-1), 5),
                 ("BOTTOMPADDING", (0,0), (-1,-1), 5),
                 ("LEFTPADDING",   (0,0), (-1,-1), 10),
+                ("RIGHTPADDING",  (0,0), (-1,-1), 10),
                 ("GRID",          (0,0), (-1,-1), 0.3, C_BORDER),
                 ("ROWBACKGROUNDS",(0,0), (-1,-1), [C_WHITE, C_GREY_BG]),
                 ("VALIGN",        (0,0), (-1,-1), "TOP"),
-                ("SPAN",          (0,2), (0,2)),
+                ("WORDWRAP",      (1,0), (1,-1), "CJK"),
             ]))
 
             pat_outer = Table([[pat_hdr], [pat_body]], colWidths=[W - 36*mm])

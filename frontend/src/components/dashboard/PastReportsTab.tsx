@@ -102,12 +102,14 @@ export default function PastReportsTab({ userEmail, onViewReport }: PastReportsT
   const handleDownloadReportPdf = async (report: any) => {
     setDownloadingId(report.id);
     try {
+      const fallbackName = String(userEmail || '').split('@')[0] || 'Patient';
+      const patientName = String(report?.patient_name || '').trim() || fallbackName;
       const res = await fetch(apiUrl('/export/pdf'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           analysis: report,
-          patient_name: 'Patient',
+          patient_name: patientName,
           age: report.patient_age || 30,
           gender: report.patient_gender || 'M',
         }),

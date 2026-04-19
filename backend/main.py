@@ -218,6 +218,7 @@ async def analyze_report(
     age: int = Form(...),
     gender: str = Form(...),
     language: str = Form(...),
+    patient_name: Optional[str] = Form(None),
     patient_context: Optional[str] = Form(None),
     user_email: Optional[str] = Form(None),
 ):
@@ -265,6 +266,7 @@ async def analyze_report(
         storage_user = (user_email or "anonymous@local").strip().lower()
         result_to_save = {
             **result,
+            "patient_name": (patient_name or "Patient").strip() or "Patient",
             "patient_age": age,
             "patient_gender": gender_code,
             "report_language": language,
@@ -531,6 +533,7 @@ async def analyze_and_download_pdf(
         storage_user = (user_email or "anonymous@local").strip().lower()
         analysis_to_save = {
             **analysis,
+            "patient_name": (patient_name or "Patient").strip() or "Patient",
             "patient_age": age,
             "patient_gender": gender_code,
             "report_language": language,

@@ -192,6 +192,9 @@ export default function ChatWidget({ analysisData, explainRequest, uiLanguage = 
   const endOfMessagesRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const baseInputRef = useRef('');
+  const finalizedSpeechRef = useRef('');
+  const shouldKeepListeningRef = useRef(false);
+  const manualStopRef = useRef(false);
   const lastExplainRequestIdRef = useRef<number | null>(null);
 
   // Auto-scroll to bottom of chat
@@ -212,6 +215,8 @@ export default function ChatWidget({ analysisData, explainRequest, uiLanguage = 
 
   useEffect(() => {
     return () => {
+      shouldKeepListeningRef.current = false;
+      manualStopRef.current = true;
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop();
@@ -231,30 +236,59 @@ export default function ChatWidget({ analysisData, explainRequest, uiLanguage = 
 
     setVoiceError(null);
     baseInputRef.current = inputMsg ? `${inputMsg.trimEnd()} ` : '';
+    finalizedSpeechRef.current = '';
+    shouldKeepListeningRef.current = true;
+    manualStopRef.current = false;
 
     if (!recognitionRef.current) {
       const recognition = new SpeechRecognition();
       recognition.lang = getVoiceRecognitionLanguage(uiLanguage);
       recognition.continuous = true;
       recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
+
+      recognition.onstart = () => {
+        setIsListening(true);
+      };
 
       recognition.onresult = (event: any) => {
-        let transcript = '';
-        for (let i = event.resultIndex; i < event.results.length; i += 1) {
-          transcript += event.results[i][0].transcript;
+        let finalTranscript = finalizedSpeechRef.current;
+        let interimTranscript = '';
+
+        for (let i = 0; i < event.results.length; i += 1) {
+          const chunk = String(event.results[i][0]?.transcript || '');
+          if (!chunk) continue;
+          if (event.results[i].isFinal) {
+            finalTranscript += `${chunk} `;
+          } else {
+            interimTranscript += chunk;
+          }
         }
-        setInputMsg(`${baseInputRef.current}${transcript}`.trimStart());
+
+        finalizedSpeechRef.current = finalTranscript;
+        const merged = `${baseInputRef.current}${finalTranscript}${interimTranscript}`.trimStart();
+        setInputMsg(merged);
       };
 
       recognition.onerror = (event: any) => {
         setIsListening(false);
+        if (event?.error === 'aborted' && manualStopRef.current) {
+          return;
+        }
         const message = event?.error === 'not-allowed'
           ? 'Microphone permission denied. Please allow microphone access.'
           : 'Voice input failed. Please try again.';
         setVoiceError(message);
+        shouldKeepListeningRef.current = false;
       };
 
       recognition.onend = () => {
+        if (shouldKeepListeningRef.current && !manualStopRef.current) {
+          try {
+            recognition.start();
+            return;
+          } catch {}
+        }
         setIsListening(false);
       };
 
@@ -267,12 +301,15 @@ export default function ChatWidget({ analysisData, explainRequest, uiLanguage = 
       recognitionRef.current.start();
       setIsListening(true);
     } catch {
+      shouldKeepListeningRef.current = false;
       setIsListening(false);
     }
   };
 
   const stopVoiceInput = () => {
     if (!recognitionRef.current) return;
+    shouldKeepListeningRef.current = false;
+    manualStopRef.current = true;
     try {
       recognitionRef.current.stop();
     } catch {}
@@ -342,8 +379,16 @@ export default function ChatWidget({ analysisData, explainRequest, uiLanguage = 
             onClick={() => setIsOpen(true)}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
-            className="fixed bottom-6 right-6 z-50 w-16 h-16 rounded-full shadow-2xl flex items-center justify-center transition-colors"
-            style={{ background: 'var(--zen-brand-solid)', color: 'white' }}
+            className="fixed z-50 w-16 h-16 rounded-full shadow-2xl flex items-center justify-center transition-colors"
+            style={{
+              position: 'fixed',
+              right: '24px',
+              bottom: '24px',
+              left: 'auto',
+              top: 'auto',
+              background: 'var(--zen-brand-solid)',
+              color: 'white',
+            }}
           >
             <MessageCircle className="w-8 h-8" />
             <AnimatePresence>
@@ -369,8 +414,15 @@ export default function ChatWidget({ analysisData, explainRequest, uiLanguage = 
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="fixed bottom-6 right-6 w-[460px] max-w-[calc(100vw-32px)] h-[620px] max-h-[calc(100vh-140px)] rounded-3xl overflow-hidden flex flex-col z-50 zen-glass-solid"
-            style={{ boxShadow: '0 20px 60px rgba(0,0,0,0.15), 0 4px 12px rgba(0,0,0,0.08)' }}
+            className="fixed w-[440px] max-w-[calc(100vw-32px)] h-[620px] max-h-[calc(100vh-140px)] rounded-3xl overflow-hidden flex flex-col z-50 zen-glass-solid"
+            style={{
+              position: 'fixed',
+              right: '24px',
+              bottom: '24px',
+              left: 'auto',
+              top: 'auto',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.15), 0 4px 12px rgba(0,0,0,0.08)',
+            }}
           >
             {/* Header */}
             <div className="px-5 py-4 flex items-center justify-between shadow-sm" style={{ background: 'var(--zen-brand)' }}>
