@@ -32,6 +32,7 @@ The platform uses **Google Gemini models** (configurable via environment variabl
 - **PDF generation** for both single-report and comparison-report exports.
 - **Reminder system** with scheduled follow-up tracking in MongoDB.
 - **Email reminder delivery (SMTP)** including **attached previous report PDF**.
+- **Telegram bot channel (webhook mode)** for report upload, analysis, contextual chat, and PDF export.
 
 ---
 
@@ -51,6 +52,7 @@ The platform uses **Google Gemini models** (configurable via environment variabl
 - **MongoDB** instance (local or hosted)
 - **Gemini API key**
 - **SMTP credentials** (for reminder email delivery)
+- **Telegram bot token** (for Telegram channel integration)
 
 ---
 
@@ -90,6 +92,11 @@ SMTP_USE_TLS=true
 
 # Optional
 CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+
+# Telegram (webhook mode)
+TELEGRAM_BOT_TOKEN=your_telegram_bot_token
+TELEGRAM_WEBHOOK_URL=https://your-domain.com/telegram/webhook
+TELEGRAM_WEBHOOK_SECRET=your_secret_token
 ```
 
 Run backend:
@@ -98,6 +105,16 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 Swagger docs: http://localhost:8000/docs
+
+Register Telegram webhook (once after deploy):
+```bash
+curl -X POST http://127.0.0.1:8000/telegram/webhook/register
+```
+
+Unregister Telegram webhook:
+```bash
+curl -X POST http://127.0.0.1:8000/telegram/webhook/unregister
+```
 
 ### 2) Frontend Setup
 ```bash
@@ -147,6 +164,11 @@ Open: http://localhost:3000
 - `POST /reminders/test-email` — send test reminder email
 - `POST /reminders/{reminder_id}/mark-notified` — mark reminder as notified (in-app flow)
 
+### Telegram Webhook
+- `POST /telegram/webhook` — Telegram update receiver endpoint
+- `POST /telegram/webhook/register` — register configured webhook URL with Telegram
+- `POST /telegram/webhook/unregister` — remove Telegram webhook
+
 ---
 
 ## 📁 Project Structure (High Level)
@@ -154,6 +176,7 @@ Open: http://localhost:3000
 ```text
 backend/
 ├── main.py
+├── telegram_backend.py
 ├── database.py
 ├── requirements.txt
 └── pipeline/

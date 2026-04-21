@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, Form
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form, Request
 from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -15,6 +15,9 @@ from pipeline.comparator import get_comparator
 from pipeline.ocr import get_extractor
 from pipeline.pdf_report import generate_pdf
 from pipeline.comparison_pdf import generate_comparison_pdf
+from telegram import Update
+from telegram.ext import Application as TelegramApplication
+from telegram_backend import build_application as build_telegram_application
 from database import save_report, get_reports_by_user, get_report_by_id, save_test_reminder, get_test_reminders_by_user, report_belongs_to_user, get_due_reminders_by_user, mark_reminder_as_notified, mark_reminder_as_emailed, delete_report_for_user
 from loguru import logger
 from dotenv import load_dotenv
@@ -26,12 +29,46 @@ cors_origins = [origin.strip() for origin in cors_origins_raw.split(",") if orig
 
 app = FastAPI(title="ClariMed API", version="3.0.0")
 
+telegram_application: Optional[TelegramApplication] = None
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins if cors_origins else ["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+async def startup_event():
+    global telegram_application
+    token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+    if not token:
+        logger.info("Telegram webhook integration is disabled (TELEGRAM_BOT_TOKEN missing).")
+        return
+
+    try:
+        telegram_application = build_telegram_application()
+        await telegram_application.initialize()
+        await telegram_application.start()
+        logger.info("Telegram webhook integration initialized.")
+    except Exception as exc:
+        telegram_application = None
+        logger.error(f"Failed to initialize Telegram webhook integration: {exc}")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    global telegram_application
+    if not telegram_application:
+        return
+
+    try:
+        await telegram_application.stop()
+        await telegram_application.shutdown()
+        logger.info("Telegram webhook integration stopped.")
+    except Exception as exc:
+        logger.error(f"Failed to stop Telegram webhook integration cleanly: {exc}")
 
 class MedicalTest(BaseModel):
     test_name: str
@@ -211,6 +248,75 @@ def home():
         "status": "online",
         "engine": os.getenv("GEMINI_ANALYZER_MODEL", "gemini-2.5-flash"),
     }
+
+
+@app.post("/telegram/webhook")
+async def telegram_webhook(request: Request):
+    if not telegram_application:
+        raise HTTPException(status_code=503, detail="Telegram integration is not initialized")
+
+    expected_secret = os.getenv("TELEGRAM_WEBHOOK_SECRET", "").strip()
+    if expected_secret:
+        received_secret = request.headers.get("x-telegram-bot-api-secret-token", "").strip()
+        if received_secret != expected_secret:
+            raise HTTPException(status_code=403, detail="Invalid Telegram webhook secret")
+
+    try:
+        payload = await request.json()
+        update = Update.de_json(payload, telegram_application.bot)
+        if update is None:
+            raise HTTPException(status_code=400, detail="Invalid Telegram update payload")
+
+        await telegram_application.process_update(update)
+        return {"ok": True}
+    except HTTPException as e:
+        raise e
+    except Exception as exc:
+        logger.error(f"Telegram webhook processing error: {exc}")
+        raise HTTPException(status_code=500, detail="Failed to process Telegram update")
+
+
+@app.post("/telegram/webhook/register")
+async def register_telegram_webhook():
+    if not telegram_application:
+        raise HTTPException(status_code=503, detail="Telegram integration is not initialized")
+
+    webhook_url = os.getenv("TELEGRAM_WEBHOOK_URL", "").strip()
+    if not webhook_url:
+        raise HTTPException(status_code=400, detail="TELEGRAM_WEBHOOK_URL is not set")
+
+    secret = os.getenv("TELEGRAM_WEBHOOK_SECRET", "").strip()
+    kwargs = {"url": webhook_url}
+    if secret:
+        kwargs["secret_token"] = secret
+
+    try:
+        ok = await telegram_application.bot.set_webhook(**kwargs)
+        if not ok:
+            raise HTTPException(status_code=500, detail="Telegram webhook registration failed")
+        return {"ok": True, "webhook_url": webhook_url}
+    except HTTPException as e:
+        raise e
+    except Exception as exc:
+        logger.error(f"Telegram webhook registration error: {exc}")
+        raise HTTPException(status_code=500, detail="Failed to register Telegram webhook")
+
+
+@app.post("/telegram/webhook/unregister")
+async def unregister_telegram_webhook():
+    if not telegram_application:
+        raise HTTPException(status_code=503, detail="Telegram integration is not initialized")
+
+    try:
+        ok = await telegram_application.bot.delete_webhook(drop_pending_updates=False)
+        if not ok:
+            raise HTTPException(status_code=500, detail="Telegram webhook removal failed")
+        return {"ok": True}
+    except HTTPException as e:
+        raise e
+    except Exception as exc:
+        logger.error(f"Telegram webhook unregister error: {exc}")
+        raise HTTPException(status_code=500, detail="Failed to unregister Telegram webhook")
 
 @app.post("/analyze", response_model=AnalysisResponse)
 async def analyze_report(

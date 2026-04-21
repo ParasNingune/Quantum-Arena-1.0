@@ -1,4 +1,4 @@
-# Quantum-Arena (MediSense AI) - Complete Technical Documentation
+# Quantum-Arena (ClariMed AI) - Complete Technical Documentation
 
 ## Table of Contents
 1. [Technologies Used](#technologies-used)
@@ -30,6 +30,7 @@
 | **python-dotenv** | Latest | Environment variable management |
 | **python-multipart** | Latest | Multipart form data parsing |
 | **Loguru** | Latest | Advanced logging with rotation |
+| **python-telegram-bot** | Latest | Telegram bot handlers and webhook update processing |
 
 ### Frontend Stack
 
@@ -60,6 +61,7 @@
 | Service | Purpose | Authentication |
 |---------|---------|-----------------|
 | **Google Gemini API** | AI analysis, OCR, chatbot | API Key |
+| **Telegram Bot API** | Telegram report upload + chat channel | Bot Token + optional webhook secret |
 | **Google Maps API** | Doctor finder (Dr. Nearby feature) | API Key |
 | **Government Health APIs** | India health scheme mapping | Integration-based |
 | **SMTP Server** | Email reminders delivery | Host, User, Password, TLS |
@@ -94,6 +96,34 @@ SMTP_USE_TLS=true                     # Use TLS encryption (default true)
    - Sends via SMTP
    - Updates email_sent_at timestamp
 4. User can test: `POST /reminders/test-email`
+
+### Telegram Webhook Integration Configuration
+
+The platform supports Telegram as an additional user channel. Telegram users can upload report files, receive analysis summaries, continue contextual Q&A, and export report PDFs.
+
+**Required Environment Variables:**
+```env
+TELEGRAM_BOT_TOKEN=your_bot_token
+TELEGRAM_WEBHOOK_URL=https://your-domain.com/telegram/webhook
+TELEGRAM_WEBHOOK_SECRET=optional_secret_token
+```
+
+**Webhook Endpoints:**
+- `POST /telegram/webhook` - receives Telegram updates and routes them to bot handlers
+- `POST /telegram/webhook/register` - registers webhook URL with Telegram
+- `POST /telegram/webhook/unregister` - removes webhook configuration from Telegram
+
+**Operational Steps:**
+1. Configure Telegram environment variables in backend `.env`
+2. Start FastAPI service (`uvicorn main:app --reload`)
+3. Call `POST /telegram/webhook/register` once after deployment
+4. Send messages/files to the Telegram bot to use report analysis and chat flows
+
+**Telegram Runtime Architecture:**
+- Handlers are defined in `backend/telegram_backend.py`
+- FastAPI startup initializes Telegram application runtime
+- `POST /telegram/webhook` converts JSON payload into Telegram Update objects
+- Updates are processed by the same analyzer/chat/pdf pipeline used by web frontend
 
 ---
 
@@ -193,6 +223,25 @@ SMTP_USE_TLS=true                     # Use TLS encryption (default true)
 - Prevent unauthorized deletion attempts
 - Return 404 if report not found
 - Return 400 if user_email not provided
+
+### 6. Telegram Channel Support (Webhook Mode)
+
+**Overview**: Extends ClariMed functionality to Telegram without duplicating analysis logic.
+
+**Capabilities:**
+- ✅ Upload PDF/JPG/PNG reports directly in Telegram
+- ✅ Run the same OCR + analysis pipeline as the web app
+- ✅ Ask follow-up report questions in Telegram chat
+- ✅ Export latest analyzed report as PDF via Telegram command
+- ✅ Save Telegram analyses into MongoDB for report history
+
+**Core Files/Modules:**
+- `backend/telegram_backend.py` - Telegram command/message handlers and session state
+- `backend/main.py` - FastAPI webhook endpoint + Telegram lifecycle initialization
+
+**Supported Telegram Commands:**
+- `/start`, `/help`, `/status`, `/reports`, `/pdf`, `/reset`
+- `/setage`, `/setgender`, `/setlang`, `/setname`
 
 ---
 

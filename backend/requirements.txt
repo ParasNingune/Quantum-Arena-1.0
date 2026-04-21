@@ -9,3 +9,4 @@ pypdf
 reportlab
 pymongo
 dnspython
+python-telegram-bot

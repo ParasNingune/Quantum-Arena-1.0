@@ -19,6 +19,7 @@ ClariMed is a full-stack health report analysis platform with:
 
 ### Backend (`backend/`)
 - **API entrypoint**: `main.py`
+- **Telegram channel handlers**: `telegram_backend.py`
 - **Data access**: `database.py` (MongoDB collections, indexes, CRUD)
 - **AI + processing pipeline** (`pipeline/`):
   - `ocr.py`: text extraction from PDF/images
@@ -55,6 +56,14 @@ ClariMed is a full-stack health report analysis platform with:
 3. Frontend periodically calls `GET /reminders/due/{user_email}`
 4. Backend sends due reminder email via SMTP and marks reminder as emailed
 
+### E) Telegram Webhook Channel
+1. Telegram sends update events to `POST /telegram/webhook`
+2. FastAPI validates optional webhook secret and decodes Telegram update payload
+3. Telegram handlers in `telegram_backend.py` process commands, text, and file uploads
+4. File uploads run through existing OCR + analyzer pipeline for report generation
+5. Follow-up user messages run through existing contextual chat pipeline
+6. Latest analysis can be exported back to user as PDF via Telegram command
+
 ## 4) Data Model Summary
 
 ### Reports Collection
@@ -81,6 +90,7 @@ Stores reminder metadata:
 - **Gemini API**: clinical analysis + chat + compare + OCR
 - **MongoDB**: persistent report/reminder storage
 - **SMTP**: reminder email delivery (including report PDF attachment)
+- **Telegram Bot API**: webhook-delivered updates for chat + upload workflows
 
 ## 6) Configuration (Environment)
 Configured in `backend/.env`:
@@ -88,9 +98,11 @@ Configured in `backend/.env`:
 - MongoDB connection + collection names
 - SMTP host/credentials/sender details
 - OCR retry tuning (`OCR_MAX_RETRIES`, `OCR_RETRY_DELAY_SECONDS`)
+- Telegram webhook settings (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_URL`, optional `TELEGRAM_WEBHOOK_SECRET`)
 
 ## 7) Deployment Notes
 - Backend runs as FastAPI (`uvicorn main:app`)
 - Frontend runs as Next.js (`npm run dev`)
 - MongoDB must be reachable from backend runtime
 - SMTP credentials must be valid for reminder email delivery
+- Telegram webhook requires a public HTTPS backend URL and one-time registration via `POST /telegram/webhook/register`
